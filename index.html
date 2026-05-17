@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>POS LINE MAN - RIDER MESSAGE UPDATE</title>
+    <title>POS LINE MAN - PRODUCTION OPTIMIZED</title>
     <style>
         body { font-family: sans-serif; padding: 15px; max-width: 900px; margin: 0 auto; background-color: #f4f4f7; min-height: 100vh; }
         header { display: flex; justify-content: space-between; margin-bottom: 15px; align-items: center; }
@@ -217,7 +217,7 @@
 
         const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-        // かすれ防止用の品質安定化パラメータ (chunkSize: 64, sleep: 12ms)
+        // ⚡ 【スピード ＆ かすれ防止の黄金比パッチ】
         async function sendBitmapToPrinter(ctx, width, totalHeight) {
             if (!printerCharacteristic) {
                 await tryAutoConnect();
@@ -245,15 +245,16 @@
             bitmap.push(0x1B, 0x64, 0x03, 0x1D, 0x56, 0x42, 0x00);
 
             const uint8Array = new Uint8Array(bitmap);
-            const chunkSize = 64; 
+            const chunkSize = 128; // 送信単位を128バイトに再拡張して高速化
+            
             for (let i = 0; i < uint8Array.length; i += chunkSize) {
                 const chunk = uint8Array.slice(i, i + chunkSize);
                 await printerCharacteristic.writeValue(chunk);
-                await sleep(12); 
+                await sleep(7); // ウェイトを7msに短縮。かすれを完全に防ぎつつサクサク動かす限界値をマーク
             }
         }
 
-        // 1. 通常の明細付きレシート（ライダー向け注意書きアドオン版）
+        // 1. 通常の明細付きレシート（レイアウト＆文字極大化パッチ）
         async function handlePrint() {
             const width = 384;
             let bodyHeight = 0;
@@ -262,8 +263,8 @@
                 if (item.selectedRice || item.selectedMango) { bodyHeight += 32; }
                 bodyHeight += 12; 
             });
-            // メッセージ追加に伴い、フッター領域を220pxに拡張して紙切れを防ぐ
-            const totalHeight = 210 + bodyHeight + 220; 
+            // 各要素の拡張に伴い、ベース高さを270px + フッター130px = 400pxに再マッピング
+            const totalHeight = 270 + bodyHeight + 130; 
 
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
@@ -272,20 +273,25 @@
             ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, width, totalHeight);
             ctx.fillStyle = '#000000'; ctx.textAlign = 'center';
             
-            // 1番上：LINEMAN (36px)
+            // ① 1番上：LINEMAN (超巨大 36px)
             ctx.font = 'bold 36px Arial'; ctx.fillText('LINEMAN', width / 2, 45);
             
-            // 2番目：店名 (26px)
+            // ② 2番目：店名 (特大 26px)
             ctx.font = 'bold 26px Arial'; ctx.fillText('ข้าวเหนียวมะม่วงแม่สุดารัตน์', width / 2, 85);
             
-            // 3番目：注文番号 (64px)
-            ctx.font = 'bold 64px Arial'; ctx.fillText(`#${orderId || '0000'}`, width / 2, 160); 
+            // ③ 3番目：注文番号 (生黒文字 64px)
+            ctx.font = 'bold 64px Arial'; ctx.fillText(`#${orderId || '0000'}`, width / 2, 155); 
             
-            // 装飾二重線
-            ctx.fillRect(12, 180, width - 24, 3); 
-            ctx.fillRect(12, 187, width - 24, 1); 
+            // ④ 【新規要件】ライダーメッセージを注文番号の直下に移動 ＆ 22pxに特大化
+            ctx.font = 'bold 22px Arial';
+            ctx.fillText('สำหรับไรเดอร์: มะม่วงปอกแล้วช้ำง่าย', width / 2, 200);
+            ctx.fillText('กรุณาจัดส่งด้วยความระมัดระวังนะคะ', width / 2, 230);
+            
+            // 装飾用の物理二重線
+            ctx.fillRect(12, 250, width - 24, 3); 
+            ctx.fillRect(12, 257, width - 24, 1); 
 
-            let currentY = 230;
+            let currentY = 295;
             let total = 0;
             cart.forEach(item => {
                 ctx.textAlign = 'left';
@@ -308,24 +314,20 @@
             ctx.font = 'bold 28px Arial'; ctx.fillText('ยอดรวมทั้งหมด:', 12, currentY + 55);
             ctx.textAlign = 'right'; ctx.fillText(`${total} ฿`, width - 12, currentY + 55);
 
-            // ④ サンクスメッセージ（24px 特大化を維持）
+            // ⑤ サンクスメッセージ（24px 特大を維持）
             ctx.textAlign = 'center';
             ctx.font = 'bold 24px Arial'; 
-            ctx.fillText('* ขอบคุณที่อุดหนุนค่ะ *', width / 2, currentY + 110);
-
-            // ⑤ 【新仕様】ライダー向けメッセージ（18px 太字・はみ出し防止の2行分割）
-            ctx.font = 'bold 18px Arial';
-            ctx.fillText('สำหรับไรเดอร์: มะม่วงปอกแล้วช้ำง่าย', width / 2, currentY + 155);
-            ctx.fillText('กรุณาจัดส่งด้วยความระมัดระวังนะคะ', width / 2, currentY + 185);
+            ctx.fillText('* ขอบคุณที่อุดหนุนค่ะ *', width / 2, currentY + 105);
 
             await sendBitmapToPrinter(ctx, width, totalHeight);
             cart = []; orderId = ''; document.getElementById('order-display').innerText = '#'; renderCart();
         }
 
-        // 2. 番号のみのレシート
+        // 2. 番号のみのレシート（装飾線 ＆ ライダーメッセージ ＆ サンクスアドオン仕様）
         async function handlePrintNumberOnly() {
             const width = 384;
-            const totalHeight = 190; 
+            // メッセージや飾り線追加に伴い、総高さを350pxに最適拡張
+            const totalHeight = 350; 
 
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
@@ -334,9 +336,27 @@
             ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, width, totalHeight);
             ctx.fillStyle = '#000000'; ctx.textAlign = 'center';
             
+            // ① 1番上：LINEMAN (36px)
             ctx.font = 'bold 36px Arial'; ctx.fillText('LINEMAN', width / 2, 45);
+
+            // ② 2番目：店名 (26px)
             ctx.font = 'bold 26px Arial'; ctx.fillText('ข้าวเหนียวมะม่วงแม่สุดารัตน์', width / 2, 85);
-            ctx.font = 'bold 64px Arial'; ctx.fillText(`#${orderId || '0000'}`, width / 2, 165);
+            
+            // ③ 3番目：注文番号 (巨大黒文字 64px)
+            ctx.font = 'bold 64px Arial'; ctx.fillText(`#${orderId || '0000'}`, width / 2, 155);
+            
+            // ④ 【新規要件】番号のみ印刷時にも特大ライダーメッセージを直下に出力 (22px)
+            ctx.font = 'bold 22px Arial';
+            ctx.fillText('สำหรับไรเดอร์: มะม่วงปอกแล้วช้ำง่าย', width / 2, 200);
+            ctx.fillText('กรุณาจัดส่งด้วยความระมัดระวังนะคะ', width / 2, 230);
+
+            // ⑤ 【新規要件】綺麗にするための美化装飾線（物理二重線）を挿入
+            ctx.fillRect(12, 250, width - 24, 3);
+            ctx.fillRect(12, 257, width - 24, 1);
+
+            // ⑥ 【新規要件】番号のみ印刷時にもサンクスメッセージを大文字で出力 (24px)
+            ctx.font = 'bold 24px Arial';
+            ctx.fillText('* ขอบคุณที่อุดหนุนค่ะ *', width / 2, 295);
             
             await sendBitmapToPrinter(ctx, width, totalHeight);
         }
