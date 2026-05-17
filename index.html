@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>POS LINE MAN - FULL MENU</title>
+    <title>POS LINE MAN - AUTO RECONNECT</title>
     <style>
         body { font-family: sans-serif; padding: 15px; max-width: 900px; margin: 0 auto; background-color: #f4f4f7; min-height: 100vh; }
         header { display: flex; justify-content: space-between; margin-bottom: 15px; align-items: center; }
@@ -27,8 +27,8 @@
 <body>
 
     <header>
-        <button class="btn-blue" onclick="connectPrinter()">เชื่อมต่อเครื่องพิมพ์</button>
-        <span id="status" style="font-weight: bold;">🟢 ยังไม่ได้เชื่อมต่อเครื่องพิมพ์</span>
+        <button class="btn-blue" onclick="connectPrinterManually()">เชื่อมต่อเครื่องพิมพ์ (Manual)</button>
+        <span id="status" style="font-weight: bold; color: #ff9f43;">🔄 กำลังตรวจสอบการเชื่อมต่อ...</span>
     </header>
 
     <div class="container">
@@ -99,7 +99,9 @@
 
         let orderId = '';
         let cart = [];
+        let printerDevice = null;
         let printerCharacteristic = null;
+        let isConnecting = false;
 
         const menuContainer = document.getElementById('menu-container');
         MENU_ITEMS.forEach(item => {
@@ -151,26 +153,105 @@
             renderCart();
         }
 
-        async function connectPrinter() {
+        // コア変更：過去のペアリング履歴から自動バックグラウンド接続を試みるロジック
+        async function setupPrinterConnection(device) {
+            if (!device) return false;
             try {
+                printerDevice = device;
+                printerDevice.removeEventListener('gattserverdisconnected', handleDisconnect);
+                printerDevice.addEventListener('gattserverdisconnected', handleDisconnect);
+                
+                if (!printerDevice.gatt.connected) {
+                    await printerDevice.gatt.connect();
+                }
+                const service = await printerDevice.gatt.getPrimaryService(0x18f0);
+                printerCharacteristic = await service.getCharacteristic(0x2af1);
+                
+                document.getElementById('status').innerText = '🟢 เชื่อมต่อสำเร็จ (Auto)';
+                document.getElementById('status').style.color = '#00cc74';
+                return true;
+            } catch (err) {
+                console.error("Connection establish failed:", err);
+                document.getElementById('status').innerText = '🔴 การเชื่อมต่อหลุด (รอรีเซ็ต)';
+                document.getElementById('status').style.color = 'red';
+                printerCharacteristic = null;
+                return false;
+            }
+        }
+
+        // 自動再接続ロジック（ブラウザにフォーカスが戻った時などに発火）
+        async function tryAutoConnect() {
+            if (isConnecting || (printerDevice && printerDevice.gatt.connected && printerCharacteristic)) return;
+            isConnecting = true;
+            document.getElementById('status').innerText = '🔄 กำลังเชื่อมต่ออัตโนมัติ...';
+            document.getElementById('status').style.color = '#ff9f43';
+            
+            try {
+                if (navigator.bluetooth && navigator.bluetooth.getDevices) {
+                    const devices = await navigator.bluetooth.getDevices();
+                    if (devices.length > 0) {
+                        await setupPrinterConnection(devices[0]);
+                    } else {
+                        document.getElementById('status').innerText = '🟡 ต้องกดเชื่อมต่อครั้งแรกก่อน';
+                    }
+                }
+            } catch (err) {
+                console.error("Auto connect failed:", err);
+            } finally {
+                isConnecting = false;
+            }
+        }
+
+        // 初回または手動接続
+        async function connectPrinterManually() {
+            try {
+                isConnecting = true;
                 document.getElementById('status').innerText = 'กำลังเชื่อมต่อ...';
                 const device = await navigator.bluetooth.requestDevice({
                     filters: [{ services: [0x18f0] }, { namePrefix: 'AN581' }, { namePrefix: 'Printer' }],
                     optionalServices: [0x18f0]
                 });
-                const server = await device.gatt.connect();
-                const service = await server.getPrimaryService(0x18f0);
-                printerCharacteristic = await service.getCharacteristic(0x2af1);
-                document.getElementById('status').innerText = '🟢 เชื่อมต่อสำเร็จ (ไฟติดค้าง)';
+                await setupPrinterConnection(device);
             } catch (err) {
                 document.getElementById('status').innerText = '❌ เชื่อมต่อล้มเหลว';
+                document.getElementById('status').style.color = 'red';
+            } finally {
+                isConnecting = false;
             }
         }
 
+        function handleDisconnect() {
+            document.getElementById('status').innerText = '🔴 การเชื่อมต่อหลุด';
+            document.getElementById('status').style.color = 'red';
+            printerCharacteristic = null;
+            // 3秒後に1回自動再接続をトライ
+            setTimeout(tryAutoConnect, 3000);
+        }
+
+        // 【フック】アプリ画面（ブラウザタブ）が前面に戻ってきた瞬間に自動再接続をトリガー
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+                tryAutoConnect();
+            }
+        });
+        window.addEventListener('focus', tryAutoConnect);
+        
+        // 初回ロード時にも自動接続を実行
+        setTimeout(tryAutoConnect, 1000);
+
         const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-        // ★スループット最適化パッチ（128バイト分割 ＆ 10msウェイト）
         async function sendBitmapToPrinter(ctx, width, totalHeight) {
+            // 万が一、ボタンを押した瞬間に切れていたらその場で緊急接続
+            if (!printerCharacteristic) {
+                document.getElementById('status').innerText = '⏳ กำลังต่อสายด่วน...';
+                await tryAutoConnect();
+                if (!printerCharacteristic) {
+                    alert('ไม่สามารถเชื่อมต่อเครื่องพิมพ์ได้ กรุณากดเชื่อมต่อ Manual');
+                    return;
+                }
+            }
+
             const imgData = ctx.getImageData(0, 0, width, totalHeight).data;
             const bitWidth = width / 8;
             const bitmap = [0x1D, 0x76, 0x30, 0, bitWidth & 0xFF, (bitWidth >> 8) & 0xFF, totalHeight & 0xFF, (totalHeight >> 8) & 0xFF];
@@ -187,20 +268,19 @@
                     bitmap.push(byte);
                 }
             }
-            bitmap.push(0x1B, 0x64, 0x03, 0x1D, 0x56, 0x42, 0x00); // オートカット
+            bitmap.push(0x1B, 0x64, 0x03, 0x1D, 0x56, 0x42, 0x00);
 
             const uint8Array = new Uint8Array(bitmap);
-            const chunkSize = 128; // 20バイトから128バイトに拡張して高速化
+            const chunkSize = 128; 
             
             for (let i = 0; i < uint8Array.length; i += chunkSize) {
                 const chunk = uint8Array.slice(i, i + chunkSize);
                 await printerCharacteristic.writeValue(chunk);
-                await sleep(10); // 15msから10msに短縮
+                await sleep(10); 
             }
         }
 
         async function handlePrint() {
-            if (!printerCharacteristic) return alert('กรุณาเชื่อมต่อเครื่องพิมพ์ก่อน');
             const width = 384;
             let bodyHeight = 0;
             cart.forEach(item => {
@@ -246,7 +326,6 @@
         }
 
         async function handlePrintNumberOnly() {
-            if (!printerCharacteristic) return alert('กรุณาเชื่อมต่อเครื่องพิมพ์ก่อน');
             const width = 384;
             const totalHeight = 160; 
             const canvas = document.createElement('canvas');
