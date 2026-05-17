@@ -295,7 +295,7 @@
             }
         }
 
-        // 1. 通常の明細付きレシート（美観2行 ＆ maxWidth絶対防御版）
+        // 1. 通常の明細付きレシート（ライダーメッセージ：完全3行独立構成版）
         async function handlePrint() {
             const width = 384;
             let bodyHeight = 0;
@@ -304,8 +304,8 @@
                 if (item.selectedRice || item.selectedMango) { bodyHeight += 32; }
                 bodyHeight += 12; 
             });
-            // 2行に戻したため、ヘッダーベース領域を 415px へギュッと凝縮（縦長化を解消）
-            const totalHeight = 415 + bodyHeight + 130; 
+            // 縦幅の被りを完全に排除しつつマージンを美しく保つため、ベースを 445px へ拡張（+30px）
+            const totalHeight = 445 + bodyHeight + 130; 
 
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
@@ -328,20 +328,22 @@
             // ③ 注文番号 (生黒文字 64px)
             ctx.font = 'bold 64px Arial'; ctx.fillText(orderStr, width / 2, 270); 
             
-            // ④ 🌟【修正】綺麗な2行構成に復元。第4引数（width - 24）で端の文字切れを物理的に自動防御。
-            // 1行目：28pxの最特大ボールド（ライダー向けタイトルを目立たせる）
-            ctx.font = 'bold 28px Arial';
-            ctx.fillText('สำหรับไรเดอร์: มะม่วงปอกแล้วช้ำง่าย', width / 2, 330, width - 24);
+            // ④ 🌟【新情報設計：計3行構成】
+            // タイトル行：34pxの超特大ボールドでセンター配置
+            ctx.font = 'bold 34px Arial';
+            ctx.fillText('สำหรับไรเดอร์', width / 2, 330);
             
-            // 2行目：23pxの太字（全体のバランスと可読性を両立）
-            ctx.font = 'bold 23px Arial';
-            ctx.fillText('กรุณาจัดส่งด้วยความระมัดระวังนะคะ', width / 2, 365, width - 24);
+            // メッセージ行：26pxの太字に拡大 ＆ 2つに分割（maxWidthパッチで文字切れ絶対防御）
+            ctx.font = 'bold 26px Arial';
+            ctx.fillText('มะม่วงปอกแล้วช้ำง่าย', width / 2, 370, width - 24);
+            ctx.fillText('กรุณาจัดส่งด้วยความระมัดระวังนะคะ', width / 2, 410, width - 24);
             
-            // 装飾用の物理二重線（元の位置 y=410, 417 に綺麗に収まりました）
-            ctx.fillRect(12, 410, width - 24, 3); 
-            ctx.fillRect(12, 417, width - 24, 1); 
+            // 装飾用の物理二重線（被らないよう y=440, 447 へ最適シフト）
+            ctx.fillRect(12, 440, width - 24, 3); 
+            ctx.fillRect(12, 447, width - 24, 1); 
 
-            let currentY = 455;
+            // 明細開始位置を 485 へシフトしてスペースの干渉を完全シャットアウト
+            let currentY = 485;
             let total = 0;
             cart.forEach(item => {
                 ctx.textAlign = 'left';
@@ -372,11 +374,11 @@
             clearAll();
         }
 
-        // 2. 番号のみのレシート（美観2行 ＆ maxWidth絶対防御版）
+        // 2. 番号のみのレシート（ライダーメッセージ：完全3行独立構成版）
         async function handlePrintNumberOnly() {
             const width = 384;
-            // 縦の無駄を削り、総高さを美しい黄金比の 490px に復元
-            const totalHeight = 490; 
+            // 比率を揃え、総高さを美しい 520px へ拡張（+30px）
+            const totalHeight = 520; 
 
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
@@ -399,19 +401,21 @@
             // ③ 注文番号 (動的判定 64px)
             ctx.font = 'bold 64px Arial'; ctx.fillText(orderStr, width / 2, 270);
             
-            // ④ 🌟【修正】番号のみレシートでも同様にスマートな2行構成 ＆ maxWidth防御
-            ctx.font = 'bold 28px Arial';
-            ctx.fillText('สำหรับไรเดอร์: มะม่วงปอกแล้วช้ำง่าย', width / 2, 330, width - 24);
-            ctx.font = 'bold 23px Arial';
-            ctx.fillText('กรุณาจัดส่งด้วยความระมัดระวังนะคะ', width / 2, 365, width - 24);
+            // ④ 🌟【新情報設計：計3行構成】
+            ctx.font = 'bold 34px Arial';
+            ctx.fillText('สำหรับไรเดอร์', width / 2, 330);
+            
+            ctx.font = 'bold 26px Arial';
+            ctx.fillText('มะม่วงปอกแล้วช้ำง่าย', width / 2, 370, width - 24);
+            ctx.fillText('กรุณาจัดส่งด้วยความระมัดระวังนะคะ', width / 2, 410, width - 24);
 
-            // ⑤ 美化装飾二重線
-            ctx.fillRect(12, 410, width - 24, 3);
-            ctx.fillRect(12, 417, width - 24, 1);
+            // ⑤ 美化装飾二重線 (y=440, 447)
+            ctx.fillRect(12, 440, width - 24, 3);
+            ctx.fillRect(12, 447, width - 24, 1);
 
-            // ⑥ サンкスメッセージ (24px)
+            // ⑥ サンクスメッセージ (24px) - y=485
             ctx.font = 'bold 24px Arial';
-            ctx.fillText('* ขอบคุณที่อุดหนุนค่ะ *', width / 2, 455);
+            ctx.fillText('* ขอบคุณที่อุดหนุนค่ะ *', width / 2, 485);
             
             await sendBitmapToPrinter(ctx, width, totalHeight);
         }
