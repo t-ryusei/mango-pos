@@ -17,7 +17,6 @@
         .menu-btn:hover { background-color: #f1f5f9; }
         .btn-green { width: 100%; padding: 12px; border-radius: 8px; border: none; background: #00cc74; color: white; font-size: 18px; font-weight: bold; cursor: pointer; }
         .btn-orange { width: 100%; padding: 12px; border-radius: 8px; border: none; background: #ff9f43; color: white; font-size: 18px; font-weight: bold; cursor: pointer; margin-top: 10px; }
-        /* 【新規追加】手動クリアボタン用の赤色スタイル */
         .btn-red { width: 100%; padding: 10px; border-radius: 8px; border: none; background: #ea4335; color: white; font-size: 15px; font-weight: bold; cursor: pointer; margin-top: 12px; }
         .cart-item { display: flex; justify-content: space-between; padding: 8px 0; font-size: 14px; border-bottom: 1px solid #eee; }
         select { width: 100%; padding: 10px; border-radius: 6px; margin-top: 5px; font-size: 16px; font-weight: bold; border: 1px solid #ccc; background-color: #fff; }
@@ -53,7 +52,6 @@
                 
                 <button class="btn-green" onclick="handlePrint()">🖨️ พิมพ์ใบเสร็จ & ตัดกระดาษ</button>
                 <button class="btn-orange" onclick="handlePrintNumberOnly()">🎫 พิมพ์เฉพาะหมายเลข</button>
-                
                 <button class="btn-red" onclick="clearAll()">❌ ล้างทั้งหมด (ล้างกระดาน)</button>
             </div>
         </div>
@@ -132,22 +130,16 @@
             document.getElementById('order-display').innerText = '#';
         }
 
-        // 🌟【新規実装】すべての状態を一括で初期化する関数
         function clearAll() {
             cart = [];
             orderId = '';
             document.getElementById('order-display').innerText = '#';
-            
-            // もち米の選択肢をデフォルト（Normalのみチェック）に戻す
             const checkboxes = document.querySelectorAll('.rice-checkbox');
             checkboxes.forEach(cb => {
                 if (cb.value === "Normal (white)") cb.checked = true;
                 else cb.checked = false;
             });
-            
-            // 甘さの選択肢をデフォルト（Sweet）に戻す
             document.getElementById('mango-select').value = 'Sweet';
-            
             renderCart();
         }
 
@@ -291,7 +283,7 @@
             }
         }
 
-        // 1. 通常の明細付きレシート
+        // 1. 通常の明細付きレシート（マージン拡張＆店名拡大版）
         async function handlePrint() {
             const width = 384;
             let bodyHeight = 0;
@@ -300,7 +292,8 @@
                 if (item.selectedRice || item.selectedMango) { bodyHeight += 32; }
                 bodyHeight += 12; 
             });
-            const totalHeight = 345 + bodyHeight + 130; 
+            // 各文字サイズ拡大とマージン拡張に伴い、ヘッダーのベース高さを 455px へ拡張
+            const totalHeight = 455 + bodyHeight + 130; 
 
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
@@ -311,25 +304,26 @@
             
             const currentApp = document.getElementById('app-select').value;
             
-            // アプリ名 (y=110, 44px)
+            // ① アプリ名 (極大 44px) - 留めしろを維持して y=110
             ctx.font = 'bold 44px Arial'; ctx.fillText(currentApp, width / 2, 110);
             
-            // 店名 (y=155, 26px)
-            ctx.font = 'bold 26px Arial'; ctx.fillText('ข้าวเหนียวมะม่วงแม่สุดารัตน์', width / 2, 155);
+            // ② 店名 (y=180 へスライド / 32px に特大化)
+            ctx.font = 'bold 32px Arial'; ctx.fillText('ข้าวเหนียวมะม่วงแม่สุดารัตน์', width / 2, 180);
             
-            // 注文番号 (y=225, 64px)
-            ctx.font = 'bold 64px Arial'; ctx.fillText(`#${orderId || '0000'}`, width / 2, 225); 
+            // ③ 注文番号 (y=270 へスライド / 64px)
+            ctx.font = 'bold 64px Arial'; ctx.fillText(`#${orderId || '0000'}`, width / 2, 270); 
             
-            // ライダーメッセージ (y=270, 300, 22px)
+            // ④ ライダーメッセージ (y=340, 375 へスライド / 22px / 英語を削り完全にタイ語化)
             ctx.font = 'bold 22px Arial';
-            ctx.fillText('for Rider: มะม่วงปอกแล้วช้ำง่าย', width / 2, 270);
-            ctx.fillText('กรุณาจัดส่งด้วยความระมัดระวังนะคะ', width / 2, 300);
+            ctx.fillText('สำหรับไรเดอร์: มะม่วงปอกแล้วช้ำง่าย', width / 2, 340);
+            ctx.fillText('กรุณาจัดส่งด้วยความระมัดระวังนะคะ', width / 2, 375);
             
-            // 装飾用の物理二重線
-            ctx.fillRect(12, 320, width - 24, 3); 
-            ctx.fillRect(12, 327, width - 24, 1); 
+            // 装飾用の物理二重線 (y=410, 417)
+            ctx.fillRect(12, 410, width - 24, 3); 
+            ctx.fillRect(12, 417, width - 24, 1); 
 
-            let currentY = 365;
+            // 明細開始位置を 455 へシフトして綺麗な余白を確保
+            let currentY = 455;
             let total = 0;
             cart.forEach(item => {
                 ctx.textAlign = 'left';
@@ -357,15 +351,14 @@
             ctx.fillText('* ขอบคุณที่อุดหนุนค่ะ *', width / 2, currentY + 105);
 
             await sendBitmapToPrinter(ctx, width, totalHeight);
-            
-            // 明細レシート発行後は自動クリアを走らせる
             clearAll();
         }
 
-        // 2. 番号のみのレシート
+        // 2. 番号のみのレシート（マージン拡張＆店名拡大版）
         async function handlePrintNumberOnly() {
             const width = 384;
-            const totalHeight = 390; 
+            // ヘッダー拡大に同期させ、総高さを 490px に拡張して美しい比率を維持
+            const totalHeight = 490; 
 
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
@@ -376,31 +369,29 @@
             
             const currentApp = document.getElementById('app-select').value;
             
-            // アプリ名 (44px)
+            // ① アプリ名 (極大 44px) - y=110
             ctx.font = 'bold 44px Arial'; ctx.fillText(currentApp, width / 2, 110);
 
-            // 店名 (26px)
-            ctx.font = 'bold 26px Arial'; ctx.fillText('ข้าวเหนียวมะม่วงแม่สุดารัตน์', width / 2, 155);
+            // ② 店名 (特大 32px) - y=180
+            ctx.font = 'bold 32px Arial'; ctx.fillText('ข้าวเหนียวมะม่วงแม่สุดารัตน์', width / 2, 180);
             
-            // 注文番号 (64px)
-            ctx.font = 'bold 64px Arial'; ctx.fillText(`#${orderId || '0000'}`, width / 2, 225);
+            // ③ 注文番号 (64px) - y=270
+            ctx.font = 'bold 64px Arial'; ctx.fillText(`#${orderId || '0000'}`, width / 2, 270);
             
-            // Rider向けメッセージ (22px)
+            // ④ ライダーメッセージ (22px / 英語を削り完全にタイ語化) - y=340, 375
             ctx.font = 'bold 22px Arial';
-            ctx.fillText('for Rider: มะม่วงปอกแล้วช้ำง่าย', width / 2, 270);
-            ctx.fillText('กรุณาจัดส่งด้วยความระมัดระวังนะคะ', width / 2, 300);
+            ctx.fillText('สำหรับไรเดอร์: มะม่วงปอกแล้วช้ำง่าย', width / 2, 340);
+            ctx.fillText('กรุณาจัดส่งด้วยความระมัดระวังนะคะ', width / 2, 375);
 
-            // 美化装飾二重線
-            ctx.fillRect(12, 320, width - 24, 3);
-            ctx.fillRect(12, 327, width - 24, 1);
+            // ⑤ 美化装飾二重線 - y=410, 417
+            ctx.fillRect(12, 410, width - 24, 3);
+            ctx.fillRect(12, 417, width - 24, 1);
 
-            // サンクスメッセージ (24px)
+            // ⑥ サンクスメッセージ (24px) - y=455
             ctx.font = 'bold 24px Arial';
-            ctx.fillText('* ขอบคุณที่อุดหนุนค่ะ *', width / 2, 365);
+            ctx.fillText('* ขอบคุณที่อุดหนุนค่ะ *', width / 2, 455);
             
             await sendBitmapToPrinter(ctx, width, totalHeight);
-            
-            // 番号のみのレシート印刷時は、オペレーション維持のため自動クリアは走らせません
         }
     </script>
 </body>
