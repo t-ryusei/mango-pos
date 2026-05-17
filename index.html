@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>POS MULTI-APP OPTIMIZED</title>
+    <title>POS MULTI-APP REAL SPEC</title>
     <style>
         body { font-family: sans-serif; padding: 15px; max-width: 900px; margin: 0 auto; background-color: #f4f4f7; min-height: 100vh; }
         header { display: flex; justify-content: space-between; margin-bottom: 15px; align-items: center; }
@@ -125,15 +125,31 @@
             menuContainer.appendChild(btn);
         });
 
+        // 🌟【新機能】画面のプレビュー表示を各アプリの公式仕様にリアルタイム同期するエンジン
+        function updateOrderDisplay() {
+            const currentApp = document.getElementById('app-select').value;
+            if (!orderId) {
+                document.getElementById('order-display').innerText = '#';
+                return;
+            }
+            let displayStr = orderId;
+            if (currentApp === 'GrabFood') {
+                displayStr = 'GF-' + orderId;
+            } else if (currentApp === 'ShopeeFood') {
+                displayStr = '#' + orderId;
+            }
+            document.getElementById('order-display').innerText = displayStr;
+        }
+
         function changeApp() {
             orderId = '';
-            document.getElementById('order-display').innerText = '#';
+            updateOrderDisplay();
         }
 
         function clearAll() {
             cart = [];
             orderId = '';
-            document.getElementById('order-display').innerText = '#';
+            updateOrderDisplay();
             const checkboxes = document.querySelectorAll('.rice-checkbox');
             checkboxes.forEach(cb => {
                 if (cb.value === "Normal (white)") cb.checked = true;
@@ -146,7 +162,7 @@
         function pressKey(key) {
             if (key === 'C') orderId = '';
             else if (orderId.length < 4) orderId += key;
-            document.getElementById('order-display').innerText = '#' + (orderId || '');
+            updateOrderDisplay();
         }
 
         function addToCart(item) {
@@ -283,7 +299,7 @@
             }
         }
 
-        // 1. 通常の明細付きレシート（マージン拡張＆店名拡大版）
+        // 1. 通常の明細付きレシート
         async function handlePrint() {
             const width = 384;
             let bodyHeight = 0;
@@ -292,7 +308,6 @@
                 if (item.selectedRice || item.selectedMango) { bodyHeight += 32; }
                 bodyHeight += 12; 
             });
-            // 各文字サイズ拡大とマージン拡張に伴い、ヘッダーのベース高さを 455px へ拡張
             const totalHeight = 455 + bodyHeight + 130; 
 
             const canvas = document.createElement('canvas');
@@ -304,25 +319,29 @@
             
             const currentApp = document.getElementById('app-select').value;
             
-            // ① アプリ名 (極大 44px) - 留めしろを維持して y=110
+            // 🌟【新ロジック】アプリに最適化された注文番号文字列を生成
+            let orderStr = orderId || '0000';
+            if (currentApp === 'GrabFood') orderStr = 'GF-' + orderStr;
+            else if (currentApp === 'ShopeeFood') orderStr = '#' + orderStr;
+            
+            // ① アプリ名 (極大 44px)
             ctx.font = 'bold 44px Arial'; ctx.fillText(currentApp, width / 2, 110);
             
-            // ② 店名 (y=180 へスライド / 32px に特大化)
+            // ② 店名 (特大 32px)
             ctx.font = 'bold 32px Arial'; ctx.fillText('ข้าวเหนียวมะม่วงแม่สุดารัตน์', width / 2, 180);
             
-            // ③ 注文番号 (y=270 へスライド / 64px)
-            ctx.font = 'bold 64px Arial'; ctx.fillText(`#${orderId || '0000'}`, width / 2, 270); 
+            // ③ 注文番号 (動的判定 64px)
+            ctx.font = 'bold 64px Arial'; ctx.fillText(orderStr, width / 2, 270); 
             
-            // ④ ライダーメッセージ (y=340, 375 へスライド / 22px / 英語を削り完全にタイ語化)
+            // ④ ライダーメッセージ (22px / 完全タイ語)
             ctx.font = 'bold 22px Arial';
             ctx.fillText('สำหรับไรเดอร์: มะม่วงปอกแล้วช้ำง่าย', width / 2, 340);
             ctx.fillText('กรุณาจัดส่งด้วยความระมัดระวังนะคะ', width / 2, 375);
             
-            // 装飾用の物理二重線 (y=410, 417)
+            // 装飾用の物理二重線
             ctx.fillRect(12, 410, width - 24, 3); 
             ctx.fillRect(12, 417, width - 24, 1); 
 
-            // 明細開始位置を 455 へシフトして綺麗な余白を確保
             let currentY = 455;
             let total = 0;
             cart.forEach(item => {
@@ -354,10 +373,9 @@
             clearAll();
         }
 
-        // 2. 番号のみのレシート（マージン拡張＆店名拡大版）
+        // 2. 番号のみのレシート
         async function handlePrintNumberOnly() {
             const width = 384;
-            // ヘッダー拡大に同期させ、総高さを 490px に拡張して美しい比率を維持
             const totalHeight = 490; 
 
             const canvas = document.createElement('canvas');
@@ -369,25 +387,30 @@
             
             const currentApp = document.getElementById('app-select').value;
             
-            // ① アプリ名 (極大 44px) - y=110
+            // 🌟【新ロジック】アプリに最適化された注文番号文字列を生成
+            let orderStr = orderId || '0000';
+            if (currentApp === 'GrabFood') orderStr = 'GF-' + orderStr;
+            else if (currentApp === 'ShopeeFood') orderStr = '#' + orderStr;
+            
+            // ① アプリ名 (極大 44px)
             ctx.font = 'bold 44px Arial'; ctx.fillText(currentApp, width / 2, 110);
 
-            // ② 店名 (特大 32px) - y=180
+            // ② 店名 (特大 32px)
             ctx.font = 'bold 32px Arial'; ctx.fillText('ข้าวเหนียวมะม่วงแม่สุดารัตน์', width / 2, 180);
             
-            // ③ 注文番号 (64px) - y=270
-            ctx.font = 'bold 64px Arial'; ctx.fillText(`#${orderId || '0000'}`, width / 2, 270);
+            // ③ 注文番号 (動的判定 64px)
+            ctx.font = 'bold 64px Arial'; ctx.fillText(orderStr, width / 2, 270);
             
-            // ④ ライダーメッセージ (22px / 英語を削り完全にタイ語化) - y=340, 375
+            // ④ ライダーメッセージ (22px / 完全タイ語)
             ctx.font = 'bold 22px Arial';
             ctx.fillText('สำหรับไรเดอร์: มะม่วงปอกแล้วช้ำง่าย', width / 2, 340);
             ctx.fillText('กรุณาจัดส่งด้วยความระมัดระวังนะคะ', width / 2, 375);
 
-            // ⑤ 美化装飾二重線 - y=410, 417
+            // ⑤ 美化装飾二重線
             ctx.fillRect(12, 410, width - 24, 3);
             ctx.fillRect(12, 417, width - 24, 1);
 
-            // ⑥ サンクスメッセージ (24px) - y=455
+            // ⑥ サンクスメッセージ (24px)
             ctx.font = 'bold 24px Arial';
             ctx.fillText('* ขอบคุณที่อุดหนุนค่ะ *', width / 2, 455);
             
