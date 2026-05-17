@@ -165,43 +165,83 @@
             }
         }
 
-        // 非同期スリープ関数（バッファ溢れ防止用）
         const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
         async function handlePrint() {
             if (!printerCharacteristic) return alert('กรุณาเชื่อมต่อเครื่องพิมพ์ก่อน');
             
             const width = 384;
+            
+            // 縦幅（高さ）を改行数に応じて1行ずつ厳密に動的計算
+            let bodyHeight = 0;
+            cart.forEach(item => {
+                bodyHeight += 45; // メニュー名の行高さ
+                
+                if (item.selectedRice) {
+                    const rices = item.selectedRice.split(', ');
+                    bodyHeight += rices.length * 28; // 1色ごとに28px確保
+                }
+                if (item.selectedMango) {
+                    bodyHeight += 28; // 甘さ用に28px確保
+                }
+                bodyHeight += 12; // アイテム間のマージン
+            });
+            const totalHeight = 180 + bodyHeight + 110; // ヘッダー180px + ボディ + フッター110px
+
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
-            const totalHeight = 200 + (cart.length * 52) + 120;
             canvas.width = width; canvas.height = totalHeight;
 
             ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, width, totalHeight);
             ctx.fillStyle = '#000000'; ctx.textAlign = 'center';
             
-            ctx.font = 'bold 24px Arial'; ctx.fillText('ออเดอร์ LINE MAN', width / 2, 40);
-            ctx.font = 'bold 42px Arial'; ctx.fillText(`#${orderId || '0000'}`, width / 2, 90);
+            // ヘッダー（大文字番号）
+            ctx.font = 'bold 28px Arial'; ctx.fillText('ออเดอร์ LINE MAN', width / 2, 45);
+            ctx.font = 'bold 62px Arial'; ctx.fillText(`#${orderId || '0000'}`, width / 2, 115);
             
-            ctx.font = '16px Arial'; ctx.textAlign = 'left';
-            ctx.fillText('------------------------------------------', 10, 130);
+            // 区切り線 1
+            ctx.fillRect(12, 145, width - 24, 3);
 
-            let currentY = 160;
+            // 明細の描画（1オプション1改行ロジック）
+            let currentY = 190;
             let total = 0;
             cart.forEach(item => {
-                ctx.font = 'bold 16px Arial'; ctx.fillText(item.name, 10, currentY);
-                ctx.textAlign = 'right'; ctx.fillText(`${item.price} B`, width-10, currentY);
-                ctx.textAlign = 'left'; total += item.price; currentY += 22;
+                ctx.textAlign = 'left';
+                ctx.font = 'bold 24px Arial'; ctx.fillText(item.name, 12, currentY);
+                ctx.textAlign = 'right'; ctx.fillText(`${item.price} B`, width - 12, currentY);
+                total += item.price; 
+                currentY += 34;
                 
-                const opts = [item.selectedRice, item.selectedMango].filter(Boolean).join(' / ');
-                if(opts) { ctx.font = 'italic 13px Arial'; ctx.fillText(`* ${opts}`, 20, currentY); currentY += 18; }
+                ctx.textAlign = 'left';
+                ctx.font = 'bold 18px Arial'; // 太字18pxで視認性固定
+                
+                // 1. もち米の色の処理 (複数ある場合は1要素ずつ独立改行)
+                if (item.selectedRice) {
+                    const rices = item.selectedRice.split(', ');
+                    rices.forEach(rice => {
+                        ctx.fillText(`* Rice: ${rice.trim()}`, 25, currentY);
+                        currentY += 28;
+                    });
+                }
+                
+                // 2. マンゴーの甘さの処理 (さらに改行して出力)
+                if (item.selectedMango) {
+                    ctx.fillText(`* Mango: ${item.selectedMango}`, 25, currentY);
+                    currentY += 28;
+                }
+                
+                currentY += 12; // アイテム間の余白
             });
 
-            ctx.fillText('------------------------------------------', 10, currentY + 10);
-            ctx.font = 'bold 20px Arial'; ctx.fillText('ยอดรวมทั้งหมด:', 10, currentY + 45);
-            ctx.textAlign = 'right'; ctx.fillText(`${total} ฿`, width-10, currentY + 45);
+            // 区切り線 2
+            ctx.fillRect(12, currentY, width - 24, 3);
 
-            // ビットマップ変換
+            // フッター（合計金額）
+            ctx.textAlign = 'left';
+            ctx.font = 'bold 28px Arial'; ctx.fillText('ยอดรวมทั้งหมด:', 12, currentY + 50);
+            ctx.textAlign = 'right'; ctx.fillText(`${total} ฿`, width - 12, currentY + 50);
+
+            // ビットマップバイナリデータ変換
             const imgData = ctx.getImageData(0, 0, width, totalHeight).data;
             const bitWidth = width / 8;
             const bitmap = [0x1D, 0x76, 0x30, 0, bitWidth & 0xFF, (bitWidth >> 8) & 0xFF, totalHeight & 0xFF, (totalHeight >> 8) & 0xFF];
@@ -218,18 +258,18 @@
                     bitmap.push(byte);
                 }
             }
-            bitmap.push(0x1B, 0x64, 0x03, 0x1D, 0x56, 0x42, 0x00); // オートカットコマンド
+            bitmap.push(0x1B, 0x64, 0x03, 0x1D, 0x56, 0x42, 0x00); // オートカット
 
             const uint8Array = new Uint8Array(bitmap);
-            const chunkSize = 20; // BLEの標準ペイロードサイズ（20バイト）に固定してデータ落ちを防止
+            const chunkSize = 20; 
             
             for (let i = 0; i < uint8Array.length; i += chunkSize) {
                 const chunk = uint8Array.slice(i, i + chunkSize);
                 await printerCharacteristic.writeValue(chunk);
-                await sleep(15); // プリンターがフラッシュする時間を確保（15ms）
+                await sleep(15); 
             }
             
-            // リセット
+            // 印刷完了後の状態リセット
             cart = []; orderId = ''; document.getElementById('order-display').innerText = '#'; renderCart();
         }
     </script>
