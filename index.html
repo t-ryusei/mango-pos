@@ -295,17 +295,21 @@
             }
         }
 
-        // 1. 通常の明細付きレシート（ライダーメッセージ：完全3行独立構成版）
+        // 1. 通常の明細付きレシート（強化枠パッチ ＆ 下部余白ジャストサイズ最適化版）
         async function handlePrint() {
             const width = 384;
-            let bodyHeight = 0;
+            
+            // 🌟【バグ修正】高さを動的にジャストサイズ計算するシミュレータ
+            let checkY = 485;
             cart.forEach(item => {
-                bodyHeight += 45; 
-                if (item.selectedRice || item.selectedMango) { bodyHeight += 32; }
-                bodyHeight += 12; 
+                checkY += 34;
+                const opts = [item.selectedRice, item.selectedMango].filter(Boolean).join(' / ');
+                if(opts) { checkY += 28; }
+                checkY += 12; 
             });
-            // 縦幅の被りを完全に排除しつつマージンを美しく保つため、ベースを 445px へ拡張（+30px）
-            const totalHeight = 445 + bodyHeight + 130; 
+            // 最後のテキストが checkY + 105 に描画されるため、
+            // 下部マージンが常にジャスト「20px」になるよう総高さを動的にマッピングして無駄な紙を完全排除
+            const totalHeight = checkY + 125; 
 
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
@@ -328,21 +332,24 @@
             // ③ 注文番号 (生黒文字 64px)
             ctx.font = 'bold 64px Arial'; ctx.fillText(orderStr, width / 2, 270); 
             
-            // ④ 🌟【新情報設計：計3行構成】
-            // タイトル行：34pxの超特大ボールドでセンター配置
+            // ④ 🌟【要望反映】ライダーメッセージ領域を四角い強化枠（線太さ3px）で囲むパッチ
+            ctx.strokeStyle = '#000000';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(12, 295, width - 24, 130); // 物理線と同じ幅で綺麗にフィット
+            
+            // タイトル行：34pxの超特大ボールド（枠内中央 y=335 へ微調整）
             ctx.font = 'bold 34px Arial';
-            ctx.fillText('สำหรับไรเดอร์', width / 2, 330);
+            ctx.fillText('สำหรับไรเดอร์', width / 2, 335);
             
-            // メッセージ行：26pxの太字に拡大 ＆ 2つに分割（maxWidthパッチで文字切れ絶対防御）
+            // メッセージ行：26px太字（枠線と文字が接触しないよう、最大描画幅 maxWidth をさらに内側の width - 36 に制限）
             ctx.font = 'bold 26px Arial';
-            ctx.fillText('มะม่วงปอกแล้วช้ำง่าย', width / 2, 370, width - 24);
-            ctx.fillText('กรุณาจัดส่งด้วยความระมัดระวังนะคะ', width / 2, 410, width - 24);
+            ctx.fillText('มะม่วงปอกแล้วช้ำง่าย', width / 2, 372, width - 36);
+            ctx.fillText('กรุณาจัดส่งด้วยความระมัดระวังนะคะ', width / 2, 408, width - 36);
             
-            // 装飾用の物理二重線（被らないよう y=440, 447 へ最適シフト）
+            // 装飾用の物理二重線 (y=440, 447)
             ctx.fillRect(12, 440, width - 24, 3); 
             ctx.fillRect(12, 447, width - 24, 1); 
 
-            // 明細開始位置を 485 へシフトしてスペースの干渉を完全シャットアウト
             let currentY = 485;
             let total = 0;
             cart.forEach(item => {
@@ -374,11 +381,11 @@
             clearAll();
         }
 
-        // 2. 番号のみのレシート（ライダーメッセージ：完全3行独立構成版）
+        // 2. 番号のみのレシート（強化枠パッチ ＆ 下部余白タイト化版）
         async function handlePrintNumberOnly() {
             const width = 384;
-            // 比率を揃え、総高さを美しい 520px へ拡張（+30px）
-            const totalHeight = 520; 
+            // 🌟【要望反映】サンクス下の無駄な白紙を詰めるため、総高さを 520px から 510px へ短縮
+            const totalHeight = 510; 
 
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
@@ -401,19 +408,23 @@
             // ③ 注文番号 (動的判定 64px)
             ctx.font = 'bold 64px Arial'; ctx.fillText(orderStr, width / 2, 270);
             
-            // ④ 🌟【新情報設計：計3行構成】
+            // ④ 🌟【要望反映】ライダーメッセージ領域を四角い強化枠（線太さ3px）で囲むパッチ
+            ctx.strokeStyle = '#000000';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(12, 295, width - 24, 130);
+            
             ctx.font = 'bold 34px Arial';
-            ctx.fillText('สำหรับไรเดอร์', width / 2, 330);
+            ctx.fillText('สำหรับไรเดอร์', width / 2, 335);
             
             ctx.font = 'bold 26px Arial';
-            ctx.fillText('มะม่วงปอกแล้วช้ำง่าย', width / 2, 370, width - 24);
-            ctx.fillText('กรุณาจัดส่งด้วยความระมัดระวังนะคะ', width / 2, 410, width - 24);
+            ctx.fillText('มะม่วงปอกแล้วช้ำง่าย', width / 2, 372, width - 36);
+            ctx.fillText('กรุณาจัดส่งด้วยความระมัดระวังนะคะ', width / 2, 408, width - 36);
 
             // ⑤ 美化装飾二重線 (y=440, 447)
             ctx.fillRect(12, 440, width - 24, 3);
             ctx.fillRect(12, 447, width - 24, 1);
 
-            // ⑥ サンクスメッセージ (24px) - y=485
+            // ⑥ サンクスメッセージ (24px) - y=485 ➔ 下部余白を最適化
             ctx.font = 'bold 24px Arial';
             ctx.fillText('* ขอบคุณที่อุดหนุนค่ะ *', width / 2, 485);
             
