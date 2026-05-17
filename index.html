@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LINE MAN POS</title>
+    <style>
+        body { font-family: sans-serif; padding: 15px; max-width: 900px; margin: 0 auto; background-color: #f4f4f7; min-height: 100vh; }
+        header { display: flex; justify-content: space-between; margin-bottom: 15px; align-items: center; }
+        .btn-blue { padding: 12px 20px; font-size: 16px; font-weight: bold; border-radius: 8px; cursor: pointer; backgroundColor: #0070f3; color: white; border: none; background: #0070f3; }
+        .container { display: grid; grid-template-columns: 1fr 1.2fr; gap: 15px; }
+        .card { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 15px; }
+        .keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 15px; }
+        .keypad button { padding: 15px; font-size: 20px; font-weight: bold; border-radius: 8px; border: 1px solid #ddd; background-color: #f8f9fa; cursor: pointer; }
+        .menu-list { display: grid; grid-template-columns: 1fr; gap: 8px; max-height: 480px; overflow-y: auto; }
+        .menu-btn { display: flex; justify-content: space-between; padding: 16px; font-size: 15px; font-weight: bold; border-radius: 8px; border: 1px solid #e2e8f0; background: #fff; cursor: pointer; text-align: left; width: 100%; }
+        .menu-btn:hover { background-color: #f1f5f9; }
+        .btn-green { width: 100%; padding: 12px; border-radius: 8px; border: none; background: #00cc74; color: white; font-size: 18px; font-weight: bold; cursor: pointer; }
+        .cart-item { display: flex; justify-content: space-between; padding: 8px 0; font-size: 14px; border-bottom: 1px solid #eee; }
+        select { width: 100%; padding: 8px; border-radius: 6px; margin-top: 5px; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <button class="btn-blue" onclick="connectPrinter()">プリンター接続</button>
+        <span id="status" style="font-weight: bold;">🟢 プリンター未接続</span>
+    </header>
+
+    <div class="container">
+        <div>
+            <div class="card">
+                <div style="font-size: 14px; color: #666;">LINE MAN 注文番号 (下4桁)</div>
+                <div id="order-display" style="font-size: 32px; font-weight: bold; border-bottom: 2px solid #ddd; padding: 5px 0; min-height: 48px; color: #0070f3;">#</div>
+                <div class="keypad">
+                    <button onclick="pressKey('1')">1</button><button onclick="pressKey('2')">2</button><button onclick="pressKey('3')">3</button>
+                    <button onclick="pressKey('4')">4</button><button onclick="pressKey('5')">5</button><button onclick="pressKey('6')">6</button>
+                    <button onclick="pressKey('7')">7</button><button onclick="pressKey('8')">8</button><button onclick="pressKey('9')">9</button>
+                    <button onclick="pressKey('C')" style="color:red;">C</button><button onclick="pressKey('0')">0</button>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>現在のカート (<span id="cart-count">0</span>)</h3>
+                <div id="cart-items" style="max-height: 180px; overflow-y: auto; margin-bottom: 10px;"></div>
+                <div style="font-size: 20px; font-weight: bold; margin-bottom: 10px; text-align: right;">合計: <span id="cart-total">0</span> ฿</div>
+                <button class="btn-green" onclick="handlePrint()">🖨️ レシート印刷 & カット</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>オプション事前選択</h3>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-radius: 8px;">
+                <div>
+                    <label style="font-size: 12px; font-weight: bold;">もち米の種類</label>
+                    <select id="rice-select">
+                        <option>Normal (White)</option>
+                        <option>Pandan (Green)</option>
+                        <option>Blue (Butterfly Pea)</option>
+                        <option>Black (Coarse)</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="font-size: 12px; font-weight: bold;">マンゴーの甘さ</label>
+                    <select id="mango-select">
+                        <option>Sweet</option>
+                        <option>Sweet & Sour</option>
+                        <option>Slightly Sweet</option>
+                    </select>
+                </div>
+            </div>
+
+            <h3>メニュー一覧 (タップで追加)</h3>
+            <div id="menu-container" class="menu-list"></div>
+        </div>
+    </div>
+
+    <script>
+        const MENU_ITEMS = [
+            { id: 'm_s', name: 'Mango Sticky Rice S', price: 89, rice: true, mango: true },
+            { id: 'm_m', name: 'Mango Sticky Rice M', price: 129, rice: true, mango: true },
+            { id: 'm_l', name: 'Mango Sticky Rice L', price: 189, rice: true, mango: true },
+            { id: 'c_n', name: 'Custard & Rice (Normal)', price: 35, rice: true },
+            { id: 'c_l', name: 'Custard & Rice (Large)', price: 75, rice: true },
+            { id: 'p_s', name: 'Peeled Mango (S)', price: 99 },
+            { id: 'p_l', name: 'Peeled Mango (L)', price: 159 },
+            { id: 'r_100', name: 'Sticky Rice 100g', price: 30, rice: true },
+            { id: 'r_500', name: 'Sticky Rice 500g', price: 150, rice: true }
+        ];
+
+        let orderId = '';
+        let cart = [];
+        let printerCharacteristic = null;
+
+        // メニューのレンダリング
+        const menuContainer = document.getElementById('menu-container');
+        MENU_ITEMS.forEach(item => {
+            const btn = document.createElement('button');
+            btn.className = 'menu-btn';
+            btn.innerHTML = `<span>${item.name}</span><span style="color:#0070f3;">${item.price} ฿</span>`;
+            btn.onclick = () => addToCart(item);
+            menuContainer.appendChild(btn);
+        });
+
+        function pressKey(key) {
+            if (key === 'C') orderId = '';
+            else if (orderId.length < 4) orderId += key;
+            document.getElementById('order-display').innerText = '#' + (orderId || '');
+        }
+
+        function addToCart(item) {
+            const rice = item.rice ? document.getElementById('rice-select').value : null;
+            const mango = item.mango ? document.getElementById('mango-select').value : null;
+            cart.push({ ...item, uid: Date.now(), selectedRice: rice, selectedMango: mango });
+            renderCart();
+        }
+
+        function renderCart() {
+            const container = document.getElementById('cart-items');
+            container.innerHTML = '';
+            let total = 0;
+            cart.forEach(item => {
+                total += item.price;
+                const div = document.createElement('div');
+                div.className = 'cart-item';
+                div.innerHTML = `<div><strong>${item.name}</strong><br><small style="color:#666">${[item.selectedRice, item.selectedMango].filter(Boolean).join(' / ')}</small></div>
+                                 <div>${item.price} B <span style="color:red;cursor:pointer;margin-left:10px;" onclick="removeFromCart(${item.uid})">✕</span></div>`;
+                container.appendChild(div);
+            });
+            document.getElementById('cart-count').innerText = cart.length;
+            document.getElementById('cart-total').innerText = total;
+        }
+
+        function removeFromCart(uid) {
+            cart = cart.filter(item => item.uid !== uid);
+            renderCart();
+        }
+
+        async function connectPrinter() {
+            try {
+                document.getElementById('status').innerText = '接続中...';
+                const device = await navigator.bluetooth.requestDevice({
+                    filters: [{ services: [0x18f0] }, { namePrefix: 'AN581' }, { namePrefix: 'Printer' }],
+                    optionalServices: [0x18f0]
+                });
+                const server = await device.gatt.connect();
+                const service = await server.getPrimaryService(0x18f0);
+                printerCharacteristic = await service.getCharacteristic(0x2af1);
+                document.getElementById('status').innerText = '🟢 接続完了 (常時点灯)';
+            } catch (err) {
+                document.getElementById('status').innerText = '❌ 接続失敗';
+            }
+        }
+
+        async function handlePrint() {
+            if (!printerCharacteristic) return alert('プリンターを接続してください');
+            
+            const width = 384;
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            const totalHeight = 200 + (cart.length * 50) + 120;
+            canvas.width = width; canvas.height = totalHeight;
+
+            ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, width, totalHeight);
+            ctx.fillStyle = '#000000'; ctx.textAlign = 'center';
+            
+            ctx.font = 'bold 24px Arial'; ctx.fillText('LINE MAN ORDER', width / 2, 40);
+            ctx.font = 'bold 38px Arial'; ctx.fillText(`#${orderId || '0000'}`, width / 2, 90);
+            
+            ctx.font = '16px Arial'; ctx.textAlign = 'left';
+            ctx.fillText('------------------------------------------', 10, 130);
+
+            let currentY = 160;
+            let total = 0;
+            cart.forEach(item => {
+                ctx.font = 'bold 16px Arial'; ctx.fillText(item.name, 10, currentY);
+                ctx.textAlign = 'right'; ctx.fillText(`${item.price} B`, width-10, currentY);
+                ctx.textAlign = 'left'; total += item.price; currentY += 22;
+                
+                const opts = [item.selectedRice, item.selectedMango].filter(Boolean).join(' / ');
+                if(opts) { ctx.font = 'italic 13px Arial'; ctx.fillText(`* ${opts}`, 20, currentY); currentY += 18; }
+            });
+
+            ctx.fillText('------------------------------------------', 10, currentY + 10);
+            ctx.font = 'bold 20px Arial'; ctx.fillText('TOTAL:', 10, currentY + 40);
+            ctx.textAlign = 'right'; ctx.fillText(`${total} ฿`, width-10, currentY + 40);
+
+            // バイナリ変換
+            const imgData = ctx.getImageData(0, 0, width, totalHeight).data;
+            const bitWidth = width / 8;
+            const bitmap = [0x1D, 0x76, 0x30, 0, bitWidth & 0xFF, (bitWidth >> 8) & 0xFF, totalHeight & 0xFF, (totalHeight >> 8) & 0xFF];
+
+            for (let y = 0; y < totalHeight; y++) {
+                for (let x = 0; x < bitWidth; x++) {
+                    let byte = 0;
+                    for (let bit = 0; bit < 8; bit++) {
+                        const rIndex = (y * width + (x * 8 + bit)) * 4;
+                        if ((0.299 * imgData[rIndex] + 0.587 * imgData[rIndex + 1] + 0.114 * imgData[rIndex + 2]) < 128) {
+                            byte |= (0x80 >> bit);
+                        }
+                    }
+                    bitmap.push(byte);
+                }
+            }
+            bitmap.push(0x1B, 0x64, 0x03, 0x1D, 0x56, 0x42, 0x00); // カッターコマンド
+
+            const uint8Array = new Uint8Array(bitmap);
+            for (let i = 0; i < uint8Array.length; i += 512) {
+                await printerCharacteristic.writeValue(uint8Array.slice(i, i + 512));
+            }
+            // リセット
+            cart = []; orderId = ''; document.getElementById('order-display').innerText = '#'; renderCart();
+        }
+    </script>
+</body>
+</html>
