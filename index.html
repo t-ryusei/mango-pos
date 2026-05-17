@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>POS LINE MAN</title>
+    <title>POS LINE MAN - FULL MENU</title>
     <style>
         body { font-family: sans-serif; padding: 15px; max-width: 900px; margin: 0 auto; background-color: #f4f4f7; min-height: 100vh; }
         header { display: flex; justify-content: space-between; margin-bottom: 15px; align-items: center; }
@@ -12,15 +12,16 @@
         .card { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 15px; }
         .keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 15px; }
         .keypad button { padding: 15px; font-size: 20px; font-weight: bold; border-radius: 8px; border: 1px solid #ddd; background-color: #f8f9fa; cursor: pointer; }
-        .menu-list { display: grid; grid-template-columns: 1fr; gap: 8px; max-height: 520px; overflow-y: auto; }
+        .menu-list { display: grid; grid-template-columns: 1fr; gap: 8px; max-height: 550px; overflow-y: auto; }
         .menu-btn { display: flex; justify-content: space-between; padding: 16px; font-size: 15px; font-weight: bold; border-radius: 8px; border: 1px solid #e2e8f0; background: #fff; cursor: pointer; text-align: left; width: 100%; }
         .menu-btn:hover { background-color: #f1f5f9; }
         .btn-green { width: 100%; padding: 12px; border-radius: 8px; border: none; background: #00cc74; color: white; font-size: 18px; font-weight: bold; cursor: pointer; }
+        .btn-orange { width: 100%; padding: 12px; border-radius: 8px; border: none; background: #ff9f43; color: white; font-size: 18px; font-weight: bold; cursor: pointer; margin-top: 10px; }
         .cart-item { display: flex; justify-content: space-between; padding: 8px 0; font-size: 14px; border-bottom: 1px solid #eee; }
-        select { width: 100%; padding: 8px; border-radius: 6px; margin-top: 5px; font-size: 14px; }
-        .checkbox-group { margin-top: 8px; display: flex; flex-direction: column; gap: 6px; }
-        .checkbox-group label { font-size: 14px; cursor: pointer; display: flex; align-items: center; gap: 6px; }
-        .checkbox-group input { width: 16px; height: 16px; }
+        select { width: 100%; padding: 10px; border-radius: 6px; margin-top: 5px; font-size: 16px; font-weight: bold; border: 1px solid #ccc; background-color: #fff; }
+        .checkbox-group { margin-top: 8px; display: flex; flex-direction: column; gap: 8px; }
+        .checkbox-group label { font-size: 15px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 8px; background: #fff; padding: 6px; border-radius: 4px; }
+        .checkbox-group input { width: 18px; height: 18px; }
     </style>
 </head>
 <body>
@@ -47,7 +48,10 @@
                 <h3>ตะกร้าสินค้า (<span id="cart-count">0</span>)</h3>
                 <div id="cart-items" style="max-height: 180px; overflow-y: auto; margin-bottom: 10px;"></div>
                 <div style="font-size: 20px; font-weight: bold; margin-bottom: 10px; text-align: right;">ยอดรวม: <span id="cart-total">0</span> ฿</div>
+                
                 <button class="btn-green" onclick="handlePrint()">🖨️ พิมพ์ใบเสร็จ & ตัดกระดาษ</button>
+                
+                <button class="btn-orange" onclick="handlePrintNumberOnly()">🎫 พิมพ์เฉพาะหมายเลข (คิว)</button>
             </div>
         </div>
 
@@ -55,7 +59,7 @@
             <h3>เลือกตัวเลือกเพิ่มเติม</h3>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px; padding: 12px; background: #f8f9fa; border-radius: 8px; border: 1px solid #e2e8f0;">
                 <div>
-                    <label style="font-size: 12px; font-weight: bold; color: #444;">ประเภทข้าวเหนียว (เลือกได้มากกว่า 1)</label>
+                    <label style="font-size: 13px; font-weight: bold; color: #222;">ประเภทข้าวเหนียว (เลือกได้มากกว่า 1)</label>
                     <div class="checkbox-group">
                         <label><input type="checkbox" class="rice-checkbox" value="Normal (white)" checked> Normal (white)</label>
                         <label><input type="checkbox" class="rice-checkbox" value="blue (blue)"> blue (blue)</label>
@@ -63,10 +67,10 @@
                     </div>
                 </div>
                 <div>
-                    <label style="font-size: 12px; font-weight: bold; color: #444;">ความหวานมะม่วง (เลือกได้ 1 อย่าง)</label>
+                    <label style="font-size: 13px; font-weight: bold; color: #222;">ความหวานมะม่วง (เลือกได้ 1 อย่าง)</label>
                     <select id="mango-select">
-                        <option>Sweet</option>
-                        <option>Sweet & Sour</option>
+                        <option value="Sweet">Sweet</option>
+                        <option value="Sweet & Sour">Sweet & Sour</option>
                     </select>
                 </div>
             </div>
@@ -78,19 +82,20 @@
 
     <script>
         const MENU_ITEMS = [
-            { id: 'm_s', name: 'Mango Sticky Rice S', price: 89, rice: true, mango: true },
-            { id: 'm_m', name: 'Mango Sticky Rice M', price: 129, rice: true, mango: true },
-            { id: 'm_l', name: 'Mango Sticky Rice L', price: 189, rice: true, mango: true },
-            { id: 'c_n', name: 'Custard & Rice (Normal)', price: 35, rice: true },
-            { id: 'c_l', name: 'Custard & Rice (Large)', price: 75, rice: true },
-            { id: 'p_s', name: 'Peeled Mango (S)', price: 99, mango: true },
-            { id: 'p_l', name: 'Peeled Mango (L)', price: 159, mango: true },
+            { id: 'm_s', name: 'Mango Sticky Rice (S)', price: 89, rice: true, mango: true },
+            { id: 'm_m', name: 'Mango Sticky Rice (M)', price: 129, rice: true, mango: true },
+            { id: 'm_l', name: 'Mango Sticky Rice (L)', price: 189, rice: true, mango: true },
+            { id: 'c_p', name: 'Custard Pudding & Sticky Rice', price: 35, rice: true },
+            { id: 'c_f', name: 'Sticky Rice With Custard + Dried Fish', price: 35, rice: true },
+            { id: 'd_f', name: 'Dried Fish With Sticky Rice', price: 35, rice: true },
+            { id: 'p_s', name: 'Peeled Mango Ready To Eat (S)', price: 99, mango: true },
+            { id: 'p_l', name: 'Peeled Mango Ready To Eat (L)', price: 159, mango: true },
             { id: 'r_100', name: 'Sticky Rice 100g', price: 30, rice: true },
             { id: 'r_200', name: 'Sticky Rice 200g', price: 60, rice: true },
             { id: 'r_300', name: 'Sticky Rice 300g', price: 90, rice: true },
             { id: 'r_400', name: 'Sticky Rice 400g', price: 120, rice: true },
-            { id: 'r_500', name: 'Sticky Rice 500g', price: 150, rice: true },
-            { id: 'r_1k', name: 'Sticky Rice 1kg', price: 300, rice: true }
+            { id: 'r_500', name: 'Sticky Rice Half a Kilo', price: 150, rice: true },
+            { id: 'r_1k', name: 'Sticky Rice 1 Kilogram', price: 300, rice: true }
         ];
 
         let orderId = '';
@@ -167,67 +172,8 @@
 
         const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-        async function handlePrint() {
-            if (!printerCharacteristic) return alert('กรุณาเชื่อมต่อเครื่องพิมพ์ก่อน');
-            
-            const width = 384;
-            let bodyHeight = 0;
-            cart.forEach(item => {
-                bodyHeight += 45; 
-                if (item.selectedRice) {
-                    const rices = item.selectedRice.split(', ');
-                    bodyHeight += rices.length * 28; 
-                }
-                if (item.selectedMango) {
-                    bodyHeight += 28; 
-                }
-                bodyHeight += 12; 
-            });
-            const totalHeight = 180 + bodyHeight + 110; 
-
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            canvas.width = width; canvas.height = totalHeight;
-
-            ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, width, totalHeight);
-            ctx.fillStyle = '#000000'; ctx.textAlign = 'center';
-            
-            ctx.font = 'bold 28px Arial'; ctx.fillText('ออเดอร์ LINE MAN', width / 2, 45);
-            ctx.font = 'bold 62px Arial'; ctx.fillText(`#${orderId || '0000'}`, width / 2, 115);
-            ctx.fillRect(12, 145, width - 24, 3);
-
-            let currentY = 190;
-            let total = 0;
-            cart.forEach(item => {
-                ctx.textAlign = 'left';
-                ctx.font = 'bold 24px Arial'; ctx.fillText(item.name, 12, currentY);
-                ctx.textAlign = 'right'; ctx.fillText(`${item.price} B`, width - 12, currentY);
-                total += item.price; 
-                currentY += 34;
-                
-                ctx.textAlign = 'left';
-                ctx.font = 'bold 18px Arial'; 
-                
-                if (item.selectedRice) {
-                    const rices = item.selectedRice.split(', ');
-                    rices.forEach(rice => {
-                        ctx.fillText(`* Rice: ${rice.trim()}`, 25, currentY);
-                        currentY += 28;
-                    });
-                }
-                if (item.selectedMango) {
-                    ctx.fillText(`* Mango: ${item.selectedMango}`, 25, currentY);
-                    currentY += 28;
-                }
-                currentY += 12; 
-            });
-
-            ctx.fillRect(12, currentY, width - 24, 3);
-            ctx.textAlign = 'left';
-            ctx.font = 'bold 28px Arial'; ctx.fillText('ยอดรวมทั้งหมด:', 12, currentY + 50);
-            ctx.textAlign = 'right'; ctx.fillText(`${total} ฿`, width - 12, currentY + 50);
-
-            // バイナリ変換
+        // 共通のビットマップ転送ロジック (BLEパケットロス対策)
+        async function sendBitmapToPrinter(ctx, width, totalHeight) {
             const imgData = ctx.getImageData(0, 0, width, totalHeight).data;
             const bitWidth = width / 8;
             const bitmap = [0x1D, 0x76, 0x30, 0, bitWidth & 0xFF, (bitWidth >> 8) & 0xFF, totalHeight & 0xFF, (totalHeight >> 8) & 0xFF];
@@ -244,19 +190,93 @@
                     bitmap.push(byte);
                 }
             }
-            bitmap.push(0x1B, 0x64, 0x03, 0x1D, 0x56, 0x42, 0x00); 
+            bitmap.push(0x1B, 0x64, 0x03, 0x1D, 0x56, 0x42, 0x00); // オートカット
 
-            // 【高速化コアロジック】
             const uint8Array = new Uint8Array(bitmap);
-            const chunkSize = 128; // パケットサイズを128バイトに拡張
-            
+            const chunkSize = 20; 
             for (let i = 0; i < uint8Array.length; i += chunkSize) {
                 const chunk = uint8Array.slice(i, i + chunkSize);
                 await printerCharacteristic.writeValue(chunk);
-                await sleep(5); // ウェイトを5ミリ秒に短縮
+                await sleep(15); 
             }
+        }
+
+        // 1. 通常の明細レシート印刷 (印刷後にカートをクリア)
+        async function handlePrint() {
+            if (!printerCharacteristic) return alert('กรุณาเชื่อมต่อเครื่องพิมพ์ก่อน');
             
+            const width = 384;
+            let bodyHeight = 0;
+            cart.forEach(item => {
+                bodyHeight += 45; 
+                if (item.selectedRice || item.selectedMango) {
+                    bodyHeight += 32; 
+                }
+                bodyHeight += 12; 
+            });
+            const totalHeight = 180 + bodyHeight + 120; 
+
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = width; canvas.height = totalHeight;
+
+            ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, width, totalHeight);
+            ctx.fillStyle = '#000000'; ctx.textAlign = 'center';
+            
+            ctx.font = 'bold 28px Arial'; ctx.fillText('ออเดอร์ LINE MAN', width / 2, 45);
+            ctx.font = 'bold 64px Arial'; ctx.fillText(`#${orderId || '0000'}`, width / 2, 115);
+            ctx.fillRect(12, 145, width - 24, 3);
+
+            let currentY = 195;
+            let total = 0;
+            cart.forEach(item => {
+                ctx.textAlign = 'left';
+                ctx.font = 'bold 24px Arial'; ctx.fillText(item.name, 12, currentY);
+                ctx.textAlign = 'right'; ctx.fillText(`${item.price} B`, width - 12, currentY);
+                total += item.price; 
+                currentY += 34;
+                
+                const opts = [item.selectedRice, item.selectedMango].filter(Boolean).join(' / ');
+                if(opts) { 
+                    ctx.textAlign = 'left';
+                    ctx.font = 'bold 18px Arial'; ctx.fillText(`* ${opts}`, 25, currentY); 
+                    currentY += 28;
+                }
+                currentY += 12; 
+            });
+
+            ctx.fillRect(12, currentY, width - 24, 3);
+            ctx.textAlign = 'left';
+            ctx.font = 'bold 28px Arial'; ctx.fillText('ยอดรวมทั้งหมด:', 12, currentY + 50);
+            ctx.textAlign = 'right'; ctx.fillText(`${total} ฿`, width - 12, currentY + 50);
+
+            await sendBitmapToPrinter(ctx, width, totalHeight);
+            
+            // 明細印刷時のみ状態をクリア
             cart = []; orderId = ''; document.getElementById('order-display').innerText = '#'; renderCart();
+        }
+
+        // 2. 【新規実装】番号（คิว）のみの印刷ロジック (印刷後もカートを維持)
+        async function handlePrintNumberOnly() {
+            if (!printerCharacteristic) return alert('กรุณาเชื่อมต่อเครื่องพิมพ์ก่อน');
+            
+            const width = 384;
+            const totalHeight = 160; // 商品がないため高さを低く最適化
+
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = width; canvas.height = totalHeight;
+
+            ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, width, totalHeight);
+            ctx.fillStyle = '#000000'; ctx.textAlign = 'center';
+            
+            // タイトルと特大の注文番号のみを描画
+            ctx.font = 'bold 26px Arial'; ctx.fillText('ออเดอร์ LINE MAN', width / 2, 45);
+            ctx.font = 'bold 72px Arial'; ctx.fillText(`#${orderId || '0000'}`, width / 2, 125);
+            
+            await sendBitmapToPrinter(ctx, width, totalHeight);
+            
+            // ★現場の利便性のため、カートデータや注文番号の消去（クリア処理）は行いません。
         }
     </script>
 </body>
