@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>POS LINE MAN - TRUE LOGO UPDATE</title>
+    <title>POS LINE MAN - SPEED OPTIMIZED</title>
     <style>
         body { font-family: sans-serif; padding: 15px; max-width: 900px; margin: 0 auto; background-color: #f4f4f7; min-height: 100vh; }
         header { display: flex; justify-content: space-between; margin-bottom: 15px; align-items: center; }
@@ -50,7 +50,7 @@
                 <div style="font-size: 20px; font-weight: bold; margin-bottom: 10px; text-align: right;">ยอดรวม: <span id="cart-total">0</span> ฿</div>
                 
                 <button class="btn-green" onclick="handlePrint()">🖨️ พิมพ์ใบเสร็จ & ตัดกระดาษ</button>
-                <button class="btn-orange" onclick="handlePrintNumberOnly()">🎫 พิมพ์เฉพาะหมายเลข (คิว)</button>
+                <button class="btn-orange" onclick="handlePrintNumberOnly()">🎫 พิมพ์เฉพาะหมายเลข</button>
             </div>
         </div>
 
@@ -217,6 +217,7 @@
 
         const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
+        // 🚀 高速送信エンジン（256バイト分割 ＆ 2msスリープ）
         async function sendBitmapToPrinter(ctx, width, totalHeight) {
             if (!printerCharacteristic) {
                 await tryAutoConnect();
@@ -244,53 +245,16 @@
             bitmap.push(0x1B, 0x64, 0x03, 0x1D, 0x56, 0x42, 0x00);
 
             const uint8Array = new Uint8Array(bitmap);
-            const chunkSize = 128; 
+            const chunkSize = 256; // 128から256バイトに倍増して通信回数を削減
+            
             for (let i = 0; i < uint8Array.length; i += chunkSize) {
                 const chunk = uint8Array.slice(i, i + chunkSize);
                 await printerCharacteristic.writeValue(chunk);
-                await sleep(10); 
+                await sleep(2); // 10msから2msへ限界まで短縮して爆速化
             }
         }
 
-        // 🌟【バグ修正】LINE MAN 本物の「吹き出し融合型 M ロゴ」生成エンジン
-        function drawLineManLogo(ctx, x, y, size) {
-            ctx.save();
-            ctx.translate(x, y);
-            
-            // 1. 背景の角丸四角形（LINEグリーンを模したベタ塗り）
-            ctx.fillStyle = '#000000'; // 白黒印刷のため100%黒として出力
-            const radius = size * 0.22;
-            ctx.beginPath();
-            ctx.moveTo(radius, 0);
-            ctx.lineTo(size - radius, 0);
-            ctx.quadraticCurveTo(size, 0, size, radius);
-            ctx.lineTo(size, size - radius);
-            ctx.quadraticCurveTo(size, size, size - radius, size);
-            ctx.lineTo(radius, size);
-            ctx.quadraticCurveTo(0, size, 0, size - radius);
-            ctx.lineTo(0, radius);
-            ctx.quadraticCurveTo(0, 0, radius, 0);
-            ctx.closePath();
-            ctx.fill();
-            
-            // 2. 内側の白抜き「M」フォントレンダリング
-            ctx.fillStyle = '#ffffff';
-            ctx.font = 'bold ' + Math.floor(size * 0.68) + 'px Arial, Helvetica, sans-serif';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText('M', size / 2, size * 0.48);
-            
-            // 3. LINEのアイデンティティである「吹き出しのしっぽ（トゲ）」をMの左側にアドオン
-            ctx.beginPath();
-            ctx.moveTo(size * 0.26, size * 0.58); // Mの左側縦棒付近から
-            ctx.lineTo(size * 0.10, size * 0.74); // 左下に向かって鋭角に尖らせる
-            ctx.lineTo(size * 0.32, size * 0.70); // スムーズに戻す
-            ctx.closePath();
-            ctx.fill();
-            
-            ctx.restore();
-        }
-
+        // 1. 通常の明細付きレシート
         async function handlePrint() {
             const width = 384;
             let bodyHeight = 0;
@@ -299,7 +263,8 @@
                 if (item.selectedRice || item.selectedMango) { bodyHeight += 32; }
                 bodyHeight += 12; 
             });
-            const totalHeight = 300 + bodyHeight + 160; 
+            // 余白を無駄なく詰め、高さを「150px + 明細 + 140px」に最適化
+            const totalHeight = 150 + bodyHeight + 140; 
 
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
@@ -308,23 +273,20 @@
             ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, width, totalHeight);
             ctx.fillStyle = '#000000'; ctx.textAlign = 'center';
             
-            // ロゴ描画 (72x72px)
-            drawLineManLogo(ctx, (width - 72) / 2, 20, 72);
+            // 店名表示
+            ctx.font = 'bold 22px Arial'; ctx.fillText('ข้าวเหนียวมะม่วงแม่สุดารัตน์', width / 2, 35);
             
-            ctx.fillStyle = '#000000';
-            ctx.font = 'bold 22px Arial'; ctx.fillText('ข้าวเหนียวมะม่วงแม่สุดารัตน์', width / 2, 115);
-            ctx.font = 'bold 18px Arial'; ctx.fillText('LINE MAN ORDER', width / 2, 142);
+            // ロゴを廃してシンプルに「LINEMAN」テキスト配置
+            ctx.font = 'bold 26px Arial'; ctx.fillText('LINEMAN', width / 2, 65);
             
-            // 注文番号反転UI
-            ctx.fillRect(42, 160, width - 84, 75); 
-            ctx.fillStyle = '#ffffff'; ctx.textAlign = 'center';
-            ctx.font = 'bold 54px Arial'; ctx.fillText(`#${orderId || '0000'}`, width / 2, 215); 
+            // 注文番号：黒背景（fillRect）を廃止し、通常背景に「巨大な黒文字」でクッキリ印字
+            ctx.font = 'bold 64px Arial'; ctx.fillText(`#${orderId || '0000'}`, width / 2, 125); 
             
-            ctx.fillStyle = '#000000';
-            ctx.fillRect(12, 255, width - 24, 4); 
-            ctx.fillRect(12, 264, width - 24, 1); 
+            // 装飾二重線
+            ctx.fillRect(12, 142, width - 24, 3); 
+            ctx.fillRect(12, 149, width - 24, 1); 
 
-            let currentY = 305;
+            let currentY = 190;
             let total = 0;
             cart.forEach(item => {
                 ctx.textAlign = 'left';
@@ -349,29 +311,30 @@
 
             ctx.textAlign = 'center';
             ctx.font = 'bold 18px Arial'; 
-            ctx.fillText('* ขอบคุณที่อุดหนุนค่ะ *', width / 2, currentY + 110);
+            ctx.fillText('* ขอบคุณที่อุดหนุนค่ะ *', width / 2, currentY + 105);
 
             await sendBitmapToPrinter(ctx, width, totalHeight);
             cart = []; orderId = ''; document.getElementById('order-display').innerText = '#'; renderCart();
         }
 
+        // 2. 番号のみのレシート（QUEUE削除 ＆ 縦幅を130pxまで圧縮して超高速化）
         async function handlePrintNumberOnly() {
             const width = 384;
-            const totalHeight = 280; 
+            const totalHeight = 130; // 高さを130pxまで詰めてデータ転送を最速化
+
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
             canvas.width = width; canvas.height = totalHeight;
+
             ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, width, totalHeight);
             ctx.fillStyle = '#000000'; ctx.textAlign = 'center';
             
-            drawLineManLogo(ctx, (width - 72) / 2, 20, 72);
+            // 店名とLINEMANのみ
+            ctx.font = 'bold 22px Arial'; ctx.fillText('ข้าวเหนียวมะม่วงแม่สุดารัตน์', width / 2, 35);
+            ctx.font = 'bold 24px Arial'; ctx.fillText('LINEMAN', width / 2, 65);
             
-            ctx.font = 'bold 22px Arial'; ctx.fillText('ข้าวเหนียวมะม่วงแม่สุดารัตน์', width / 2, 115);
-            ctx.font = 'bold 16px Arial'; ctx.fillText('คิวออเดอร์ (QUEUE)', width / 2, 140);
-            
-            ctx.fillRect(32, 160, width - 64, 90); 
-            ctx.fillStyle = '#ffffff';
-            ctx.font = 'bold 68px Arial'; ctx.fillText(`#${orderId || '0000'}`, width / 2, 228);
+            // QUEUEのテキストおよび黒背景を完全削除。通常背景に巨大な黒文字で出力。
+            ctx.font = 'bold 64px Arial'; ctx.fillText(`#${orderId || '0000'}`, width / 2, 118);
             
             await sendBitmapToPrinter(ctx, width, totalHeight);
         }
