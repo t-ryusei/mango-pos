@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>POS LINE MAN - AUTO RECONNECT</title>
+    <title>POS LINE MAN - PREMIUM DESIGN</title>
     <style>
         body { font-family: sans-serif; padding: 15px; max-width: 900px; margin: 0 auto; background-color: #f4f4f7; min-height: 100vh; }
         header { display: flex; justify-content: space-between; margin-bottom: 15px; align-items: center; }
@@ -153,7 +153,6 @@
             renderCart();
         }
 
-        // コア変更：過去のペアリング履歴から自動バックグラウンド接続を試みるロジック
         async function setupPrinterConnection(device) {
             if (!device) return false;
             try {
@@ -171,21 +170,19 @@
                 document.getElementById('status').style.color = '#00cc74';
                 return true;
             } catch (err) {
-                console.error("Connection establish failed:", err);
-                document.getElementById('status').innerText = '🔴 การเชื่อมต่อหลุด (รอรีเซ็ต)';
+                console.error(err);
+                document.getElementById('status').innerText = '🔴 การเชื่อมต่อหลุด';
                 document.getElementById('status').style.color = 'red';
                 printerCharacteristic = null;
                 return false;
             }
         }
 
-        // 自動再接続ロジック（ブラウザにフォーカスが戻った時などに発火）
         async function tryAutoConnect() {
             if (isConnecting || (printerDevice && printerDevice.gatt.connected && printerCharacteristic)) return;
             isConnecting = true;
             document.getElementById('status').innerText = '🔄 กำลังเชื่อมต่ออัตโนมัติ...';
             document.getElementById('status').style.color = '#ff9f43';
-            
             try {
                 if (navigator.bluetooth && navigator.bluetooth.getDevices) {
                     const devices = await navigator.bluetooth.getDevices();
@@ -196,13 +193,12 @@
                     }
                 }
             } catch (err) {
-                console.error("Auto connect failed:", err);
+                console.error(err);
             } finally {
                 isConnecting = false;
             }
         }
 
-        // 初回または手動接続
         async function connectPrinterManually() {
             try {
                 isConnecting = true;
@@ -224,27 +220,19 @@
             document.getElementById('status').innerText = '🔴 การเชื่อมต่อหลุด';
             document.getElementById('status').style.color = 'red';
             printerCharacteristic = null;
-            // 3秒後に1回自動再接続をトライ
             setTimeout(tryAutoConnect, 3000);
         }
 
-        // 【フック】アプリ画面（ブラウザタブ）が前面に戻ってきた瞬間に自動再接続をトリガー
         document.addEventListener('visibilitychange', () => {
-            if (document.visibilityState === 'visible') {
-                tryAutoConnect();
-            }
+            if (document.visibilityState === 'visible') { tryAutoConnect(); }
         });
         window.addEventListener('focus', tryAutoConnect);
-        
-        // 初回ロード時にも自動接続を実行
         setTimeout(tryAutoConnect, 1000);
 
         const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
         async function sendBitmapToPrinter(ctx, width, totalHeight) {
-            // 万が一、ボタンを押した瞬間に切れていたらその場で緊急接続
             if (!printerCharacteristic) {
-                document.getElementById('status').innerText = '⏳ กำลังต่อสายด่วน...';
                 await tryAutoConnect();
                 if (!printerCharacteristic) {
                     alert('ไม่สามารถเชื่อมต่อเครื่องพิมพ์ได้ กรุณากดเชื่อมต่อ Manual');
@@ -272,7 +260,6 @@
 
             const uint8Array = new Uint8Array(bitmap);
             const chunkSize = 128; 
-            
             for (let i = 0; i < uint8Array.length; i += chunkSize) {
                 const chunk = uint8Array.slice(i, i + chunkSize);
                 await printerCharacteristic.writeValue(chunk);
@@ -280,6 +267,7 @@
             }
         }
 
+        // 1. 通常の明細付きレシート (プレミアム・リデザイン版)
         async function handlePrint() {
             const width = 384;
             let bodyHeight = 0;
@@ -288,19 +276,33 @@
                 if (item.selectedRice || item.selectedMango) { bodyHeight += 32; }
                 bodyHeight += 12; 
             });
-            const totalHeight = 180 + bodyHeight + 120; 
+            // ヘッダー230px + 明細 + フッター160px
+            const totalHeight = 230 + bodyHeight + 160; 
 
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
             canvas.width = width; canvas.height = totalHeight;
+
             ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, width, totalHeight);
             ctx.fillStyle = '#000000'; ctx.textAlign = 'center';
             
-            ctx.font = 'bold 28px Arial'; ctx.fillText('ออเดอร์ LINE MAN', width / 2, 45);
-            ctx.font = 'bold 64px Arial'; ctx.fillText(`#${orderId || '0000'}`, width / 2, 115);
-            ctx.fillRect(12, 145, width - 24, 3);
+            // ① 【新仕様】最上部に店名を中央配置
+            ctx.font = 'bold 22px Arial'; ctx.fillText('ข้าวเหนียวมะม่วงแม่สุดารัตน์', width / 2, 38);
+            
+            // サブタイトル
+            ctx.font = 'bold 18px Arial'; ctx.fillText('LINE MAN ORDER', width / 2, 65);
+            
+            // ② 【新仕様】注文番号を黒背景×白抜きの「反転表示」にしてガチ感を演出
+            ctx.fillRect(42, 85, width - 84, 75); // 黒い座布団を敷く
+            ctx.fillStyle = '#ffffff'; ctx.textAlign = 'center';
+            ctx.font = 'bold 54px Arial'; ctx.fillText(`#${orderId || '0000'}`, width / 2, 140); // 白い文字
+            
+            // 装飾用の二重線をCanvasで表現
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(12, 185, width - 24, 4); // 上の太い線
+            ctx.fillRect(12, 194, width - 24, 1); // 下の細い線
 
-            let currentY = 195;
+            let currentY = 235;
             let total = 0;
             cart.forEach(item => {
                 ctx.textAlign = 'left';
@@ -316,26 +318,44 @@
                 currentY += 12; 
             });
 
-            ctx.fillRect(12, currentY, width - 24, 3);
+            // 明細下の境界線
+            ctx.fillRect(12, currentY, width - 24, 1);
+            ctx.fillRect(12, currentY + 6, width - 24, 4);
+
+            // 合計金額
             ctx.textAlign = 'left';
-            ctx.font = 'bold 28px Arial'; ctx.fillText('ยอดรวมทั้งหมด:', 12, currentY + 50);
-            ctx.textAlign = 'right'; ctx.fillText(`${total} ฿`, width - 12, currentY + 50);
+            ctx.font = 'bold 28px Arial'; ctx.fillText('ยอดรวมทั้งหมด:', 12, currentY + 55);
+            ctx.textAlign = 'right'; ctx.fillText(`${total} ฿`, width - 12, currentY + 55);
+
+            // ③ 【新仕様】最下部にサンクスメッセージを追加
+            ctx.textAlign = 'center';
+            ctx.font = 'bold 18px Arial'; 
+            ctx.fillText('* ขอบคุณที่อุดหนุนค่ะ *', width / 2, currentY + 110);
 
             await sendBitmapToPrinter(ctx, width, totalHeight);
             cart = []; orderId = ''; document.getElementById('order-display').innerText = '#'; renderCart();
         }
 
+        // 2. 番号のみのレシート (プレミアム・リデザイン版)
         async function handlePrintNumberOnly() {
             const width = 384;
-            const totalHeight = 160; 
+            const totalHeight = 210; // 反転表示に伴い、高さを210pxに最適化
+
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
             canvas.width = width; canvas.height = totalHeight;
+
             ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, width, totalHeight);
             ctx.fillStyle = '#000000'; ctx.textAlign = 'center';
             
-            ctx.font = 'bold 26px Arial'; ctx.fillText('ออเดอร์ LINE MAN', width / 2, 45);
-            ctx.font = 'bold 72px Arial'; ctx.fillText(`#${orderId || '0000'}`, width / 2, 125);
+            // ① 【新仕様】店名を上部に出力
+            ctx.font = 'bold 22px Arial'; ctx.fillText('ข้าวเหนียวมะม่วงแม่สุดารัตน์', width / 2, 38);
+            ctx.font = 'bold 16px Arial'; ctx.fillText('คิวออเดอร์ (QUEUE)', width / 2, 62);
+            
+            // ② 【新仕様】こちらも同様に「反転黒座布団」で圧倒的な視認性を確保
+            ctx.fillRect(32, 80, width - 64, 90); // ひとまわり大きな座布団
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 68px Arial'; ctx.fillText(`#${orderId || '0000'}`, width / 2, 148);
             
             await sendBitmapToPrinter(ctx, width, totalHeight);
         }
