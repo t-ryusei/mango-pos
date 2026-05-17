@@ -50,7 +50,6 @@
                 <div style="font-size: 20px; font-weight: bold; margin-bottom: 10px; text-align: right;">ยอดรวม: <span id="cart-total">0</span> ฿</div>
                 
                 <button class="btn-green" onclick="handlePrint()">🖨️ พิมพ์ใบเสร็จ & ตัดกระดาษ</button>
-                
                 <button class="btn-orange" onclick="handlePrintNumberOnly()">🎫 พิมพ์เฉพาะหมายเลข (คิว)</button>
             </div>
         </div>
@@ -124,7 +123,6 @@
                 const selectedRices = Array.from(checkedBoxes).map(cb => cb.value);
                 riceStr = selectedRices.length > 0 ? selectedRices.join(', ') : 'Normal (white)';
             }
-            
             const mango = item.mango ? document.getElementById('mango-select').value : null;
             cart.push({ ...item, uid: Date.now(), selectedRice: riceStr, selectedMango: mango });
             renderCart();
@@ -140,7 +138,6 @@
                 div.className = 'cart-item';
                 const optsArray = [item.selectedRice, item.selectedMango].filter(Boolean);
                 const optsText = optsArray.length > 0 ? optsArray.join(' / ') : '';
-
                 div.innerHTML = `<div><strong>${item.name}</strong><br><small style="color:#666">${optsText}</small></div>
                                  <div>${item.price} B <span style="color:red;cursor:pointer;margin-left:10px;" onclick="removeFromCart(${item.uid})">✕</span></div>`;
                 container.appendChild(div);
@@ -172,7 +169,7 @@
 
         const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-        // 共通のビットマップ転送ロジック (BLEパケットロス対策)
+        // ★スループット最適化パッチ（128バイト分割 ＆ 10msウェイト）
         async function sendBitmapToPrinter(ctx, width, totalHeight) {
             const imgData = ctx.getImageData(0, 0, width, totalHeight).data;
             const bitWidth = width / 8;
@@ -193,25 +190,22 @@
             bitmap.push(0x1B, 0x64, 0x03, 0x1D, 0x56, 0x42, 0x00); // オートカット
 
             const uint8Array = new Uint8Array(bitmap);
-            const chunkSize = 20; 
+            const chunkSize = 128; // 20バイトから128バイトに拡張して高速化
+            
             for (let i = 0; i < uint8Array.length; i += chunkSize) {
                 const chunk = uint8Array.slice(i, i + chunkSize);
                 await printerCharacteristic.writeValue(chunk);
-                await sleep(15); 
+                await sleep(10); // 15msから10msに短縮
             }
         }
 
-        // 1. 通常の明細レシート印刷 (印刷後にカートをクリア)
         async function handlePrint() {
             if (!printerCharacteristic) return alert('กรุณาเชื่อมต่อเครื่องพิมพ์ก่อน');
-            
             const width = 384;
             let bodyHeight = 0;
             cart.forEach(item => {
                 bodyHeight += 45; 
-                if (item.selectedRice || item.selectedMango) {
-                    bodyHeight += 32; 
-                }
+                if (item.selectedRice || item.selectedMango) { bodyHeight += 32; }
                 bodyHeight += 12; 
             });
             const totalHeight = 180 + bodyHeight + 120; 
@@ -219,7 +213,6 @@
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
             canvas.width = width; canvas.height = totalHeight;
-
             ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, width, totalHeight);
             ctx.fillStyle = '#000000'; ctx.textAlign = 'center';
             
@@ -233,9 +226,7 @@
                 ctx.textAlign = 'left';
                 ctx.font = 'bold 24px Arial'; ctx.fillText(item.name, 12, currentY);
                 ctx.textAlign = 'right'; ctx.fillText(`${item.price} B`, width - 12, currentY);
-                total += item.price; 
-                currentY += 34;
-                
+                total += item.price; currentY += 34;
                 const opts = [item.selectedRice, item.selectedMango].filter(Boolean).join(' / ');
                 if(opts) { 
                     ctx.textAlign = 'left';
@@ -251,32 +242,23 @@
             ctx.textAlign = 'right'; ctx.fillText(`${total} ฿`, width - 12, currentY + 50);
 
             await sendBitmapToPrinter(ctx, width, totalHeight);
-            
-            // 明細印刷時のみ状態をクリア
             cart = []; orderId = ''; document.getElementById('order-display').innerText = '#'; renderCart();
         }
 
-        // 2. 【新規実装】番号（คิว）のみの印刷ロジック (印刷後もカートを維持)
         async function handlePrintNumberOnly() {
             if (!printerCharacteristic) return alert('กรุณาเชื่อมต่อเครื่องพิมพ์ก่อน');
-            
             const width = 384;
-            const totalHeight = 160; // 商品がないため高さを低く最適化
-
+            const totalHeight = 160; 
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
             canvas.width = width; canvas.height = totalHeight;
-
             ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, width, totalHeight);
             ctx.fillStyle = '#000000'; ctx.textAlign = 'center';
             
-            // タイトルと特大の注文番号のみを描画
             ctx.font = 'bold 26px Arial'; ctx.fillText('ออเดอร์ LINE MAN', width / 2, 45);
             ctx.font = 'bold 72px Arial'; ctx.fillText(`#${orderId || '0000'}`, width / 2, 125);
             
             await sendBitmapToPrinter(ctx, width, totalHeight);
-            
-            // ★現場の利便性のため、カートデータや注文番号の消去（クリア処理）は行いません。
         }
     </script>
 </body>
