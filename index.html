@@ -104,8 +104,8 @@
             { id: 'p_l', name: 'Peeled Mango Ready To Eat (L)', price: 159, mango: true },
             { id: 'r_100', name: 'Sticky Rice 100g', price: 30, rice: true },
             { id: 'r_200', name: 'Sticky Rice 200g', price: 60, rice: true },
-            { id: 'r_300', name: 'Sticky Rice 300g', price: 90, rice: true },
-            { id: 'r_400', name: 'Sticky Rice 400g', price: 120, rice: true },
+            { id: 'r_300', name: 'Sticky Rice 90g', price: 90, rice: true },
+            { id: 'r_400', name: 'Sticky Rice 120g', price: 120, rice: true },
             { id: 'r_500', name: 'Sticky Rice Half a Kilo', price: 150, rice: true },
             { id: 'r_1k', name: 'Sticky Rice 1 Kilogram', price: 300, rice: true }
         ];
@@ -242,7 +242,7 @@
                 });
                 await setupPrinterConnection(device);
             } catch (err) {
-                document.getElementById('status').innerText = '❌ เชื่อ問ต่อล้มเหลว';
+                document.getElementById('status').innerText = '❌ เชื่อมต่อล้มเหลว';
                 document.getElementById('status').style.color = 'red';
             } finally { isConnecting = false; }
         }
@@ -295,7 +295,7 @@
             }
         }
 
-        // 1. 通常の明細付きレシート（ライダーメッセージ折り返しバグ修正版）
+        // 1. 通常の明細付きレシート（美観2行 ＆ maxWidth絶対防御版）
         async function handlePrint() {
             const width = 384;
             let bodyHeight = 0;
@@ -304,8 +304,8 @@
                 if (item.selectedRice || item.selectedMango) { bodyHeight += 32; }
                 bodyHeight += 12; 
             });
-            // 要望の特大文字（28px）を維持し、4行に折り返すスペースを確保するためヘッダー高さを 530px へ拡張
-            const totalHeight = 530 + bodyHeight + 130; 
+            // 2行に戻したため、ヘッダーベース領域を 415px へギュッと凝縮（縦長化を解消）
+            const totalHeight = 415 + bodyHeight + 130; 
 
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
@@ -319,39 +319,29 @@
             if (currentApp === 'GrabFood') orderStr = 'GF-' + orderStr;
             else if (currentApp === 'ShopeeFood') orderStr = '#' + orderStr;
             
-            // ① アプリ名 (極大 44px) - y=110
+            // ① アプリ名 (極大 44px)
             ctx.font = 'bold 44px Arial'; ctx.fillText(currentApp, width / 2, 110);
             
-            // ② 店名 (特大 32px) - y=180
+            // ② 店名 (特大 32px)
             ctx.font = 'bold 32px Arial'; ctx.fillText('ข้าวเหนียวมะม่วงแม่สุดารัตน์', width / 2, 180);
             
-            // ③ 注文番号 (生黒文字 64px) - y=270
+            // ③ 注文番号 (生黒文字 64px)
             ctx.font = 'bold 64px Arial'; ctx.fillText(orderStr, width / 2, 270); 
             
-            // ④ 🛠️【バグ修正】要望の特大ボールド（28px）を維持しつつ、左右幅に収まるよう自動折り返し配置
-            ctx.font = 'bold 28px Arial'; // 要望サイズを維持
+            // ④ 🌟【修正】綺麗な2行構成に復元。第4引数（width - 24）で端の文字切れを物理的に自動防御。
+            // 1行目：28pxの最特大ボールド（ライダー向けタイトルを目立たせる）
+            ctx.font = 'bold 28px Arial';
+            ctx.fillText('สำหรับไรเดอร์: มะม่วงปอกแล้วช้ำง่าย', width / 2, 330, width - 24);
             
-            // メッセージを左右幅に収まる適切な長さで手動分割（本物そっくりな改行位置）
-            const riderLines = [
-                "สำหรับไรเดอร์:",       // 1行目（タイトル）
-                "มะม่วงปอกแล้วช้ำง่าย",  // 2行目
-                "กรุณาจัดส่ง",         // 3行目
-                "ด้วยความระมัดระวังนะคะ" // 4行目
-            ];
+            // 2行目：23pxの太字（全体のバランスと可読性を両立）
+            ctx.font = 'bold 23px Arial';
+            ctx.fillText('กรุณาจัดส่งด้วยความระมัดระวังนะคะ', width / 2, 365, width - 24);
             
-            // 開始Y座標を330に設定し、35px刻み（行間）で描画
-            let riderY = 330;
-            riderLines.forEach(line => {
-                ctx.fillText(line, width / 2, riderY);
-                riderY += 35; // 行間を広めに設定
-            });
-            
-            // 装飾用の物理二重線 (y=480, 487 へ大幅にスライド)
-            ctx.fillRect(12, 480, width - 24, 3); 
-            ctx.fillRect(12, 487, width - 24, 1); 
+            // 装飾用の物理二重線（元の位置 y=410, 417 に綺麗に収まりました）
+            ctx.fillRect(12, 410, width - 24, 3); 
+            ctx.fillRect(12, 417, width - 24, 1); 
 
-            // 明細開始位置を 530 へシフトして被りを完全シャットアウト
-            let currentY = 530;
+            let currentY = 455;
             let total = 0;
             cart.forEach(item => {
                 ctx.textAlign = 'left';
@@ -382,11 +372,11 @@
             clearAll();
         }
 
-        // 2. 番号のみのレシート（ライダーメッセージ折り返しバグ修正版）
+        // 2. 番号のみのレシート（美観2行 ＆ maxWidth絶対防御版）
         async function handlePrintNumberOnly() {
             const width = 384;
-            // ヘッダー拡大に同期させ、総高さを 560px に拡張して美しい比率を維持
-            const totalHeight = 560; 
+            // 縦の無駄を削り、総高さを美しい黄金比の 490px に復元
+            const totalHeight = 490; 
 
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
@@ -400,38 +390,28 @@
             if (currentApp === 'GrabFood') orderStr = 'GF-' + orderStr;
             else if (currentApp === 'ShopeeFood') orderStr = '#' + orderStr;
             
-            // ① アプリ名 (極大 44px) - y=110
+            // ① アプリ名 (極大 44px)
             ctx.font = 'bold 44px Arial'; ctx.fillText(currentApp, width / 2, 110);
 
-            // ② 店名 (特大 32px) - y=180
+            // ② 店名 (特大 32px)
             ctx.font = 'bold 32px Arial'; ctx.fillText('ข้าวเหนียวมะม่วงแม่สุดารัตน์', width / 2, 180);
             
-            // ③ 注文番号 (動的判定 64px) - y=270
+            // ③ 注文番号 (動的判定 64px)
             ctx.font = 'bold 64px Arial'; ctx.fillText(orderStr, width / 2, 270);
             
-            // ④ 🛠️【バグ修正】番号のみレシートでも特大ボールド（28px）を維持しつつ、4行に自動折り返し
+            // ④ 🌟【修正】番号のみレシートでも同様にスマートな2行構成 ＆ maxWidth防御
             ctx.font = 'bold 28px Arial';
-            
-            const riderLines = [
-                "สำหรับไรเดอร์:",
-                "มะม่วงปอกแล้วช้ำง่าย",
-                "กรุณาจัดส่ง",
-                "ด้วยความระมัดระวังนะคะ"
-            ];
-            
-            let riderY = 330;
-            riderLines.forEach(line => {
-                ctx.fillText(line, width / 2, riderY);
-                riderY += 35; // 行間 35px
-            });
+            ctx.fillText('สำหรับไรเดอร์: มะม่วงปอกแล้วช้ำง่าย', width / 2, 330, width - 24);
+            ctx.font = 'bold 23px Arial';
+            ctx.fillText('กรุณาจัดส่งด้วยความระมัดระวังนะคะ', width / 2, 365, width - 24);
 
-            // ⑤ 美化装飾二重線 - y=480, 487
-            ctx.fillRect(12, 480, width - 24, 3);
-            ctx.fillRect(12, 487, width - 24, 1);
+            // ⑤ 美化装飾二重線
+            ctx.fillRect(12, 410, width - 24, 3);
+            ctx.fillRect(12, 417, width - 24, 1);
 
-            // ⑥ サンクスメッセージ (24px) - y=525
+            // ⑥ サンкスメッセージ (24px)
             ctx.font = 'bold 24px Arial';
-            ctx.fillText('* ขอบคุณที่อุดหนุนค่ะ *', width / 2, 525);
+            ctx.fillText('* ขอบคุณที่อุดหนุนค่ะ *', width / 2, 455);
             
             await sendBitmapToPrinter(ctx, width, totalHeight);
         }
