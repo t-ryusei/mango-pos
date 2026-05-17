@@ -61,7 +61,7 @@
                 <label style="font-size: 14px; font-weight: bold; color: #1e293b;">เลือกแอปเดลิเวอรี (Select Delivery App)</label>
                 <select id="app-select" style="margin-top: 6px;">
                     <option value="LINEMAN" selected>LINEMAN</option>
-                    <option value="Grab">Grab</option>
+                    <option value="GrabFood">GrabFood</option>
                     <option value="ShopeeFood">ShopeeFood</option>
                     <option value="Robinhood">Robinhood</option>
                 </select>
@@ -210,7 +210,7 @@
                 });
                 await setupPrinterConnection(device);
             } catch (err) {
-                document.getElementById('status').innerText = '❌ เชื่อมต่อล้มเหลว';
+                document.getElementById('status').innerText = '❌ เชื่อ問ต่อล้มเหลว';
                 document.getElementById('status').style.color = 'red';
             } finally { isConnecting = false; }
         }
@@ -228,7 +228,6 @@
 
         const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-        // ⚡ スピードと密度の黄金比パラメータ (chunkSize: 128, sleep: 7ms)
         async function sendBitmapToPrinter(ctx, width, totalHeight) {
             if (!printerCharacteristic) {
                 await tryAutoConnect();
@@ -264,7 +263,7 @@
             }
         }
 
-        // 1. 通常の明細付きレシート（マルチアプリ動点対応版）
+        // 1. 通常の明細付きレシート（アプリ名サイズアップ＆レイアウト最適化版）
         async function handlePrint() {
             const width = 384;
             let bodyHeight = 0;
@@ -273,7 +272,8 @@
                 if (item.selectedRice || item.selectedMango) { bodyHeight += 32; }
                 bodyHeight += 12; 
             });
-            const totalHeight = 335 + bodyHeight + 130; 
+            // 文字拡大と安全な行間確保のため、ヘッダーベース領域を 345px に拡張
+            const totalHeight = 345 + bodyHeight + 130; 
 
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
@@ -282,28 +282,28 @@
             ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, width, totalHeight);
             ctx.fillStyle = '#000000'; ctx.textAlign = 'center';
             
-            // 🌟 選択されたアプリ名をUIから動的に取得
             const currentApp = document.getElementById('app-select').value;
             
-            // 1番上：選択したデリバリーアプリ名 (y=105, 36px)
-            ctx.font = 'bold 36px Arial'; ctx.fillText(currentApp, width / 2, 105);
+            // ① アプリ名のフォントをさらに巨大化（36px ➔ 44px の極大ボールド）
+            ctx.font = 'bold 44px Arial'; ctx.fillText(currentApp, width / 2, 110);
             
-            // 2番目：店名 (y=145, 26px)
-            ctx.font = 'bold 26px Arial'; ctx.fillText('ข้าวเหนียวมะม่วงแม่สุดารัตน์', width / 2, 145);
+            // ② 2番目：店名 (26px) - 文字被りを防ぐためY軸を155にシフト
+            ctx.font = 'bold 26px Arial'; ctx.fillText('ข้าวเหนียวมะม่วงแม่สุดารัตน์', width / 2, 155);
             
-            // 3番目：注文番号 (y=215, 64px)
-            ctx.font = 'bold 64px Arial'; ctx.fillText(`#${orderId || '0000'}`, width / 2, 215); 
+            // ③ 3番目：注文番号 (生黒文字 64px) - Y軸を225に最適調整
+            ctx.font = 'bold 64px Arial'; ctx.fillText(`#${orderId || '0000'}`, width / 2, 225); 
             
-            // 4番目：ライダーメッセージ (y=260, 290)
+            // ④ 4番目：ライダーメッセージ (22px) - Y軸を270, 300にシフトしてクッキリ独立配置
             ctx.font = 'bold 22px Arial';
-            ctx.fillText('สำหรับไรเดอร์: มะม่วงปอกแล้วช้ำง่าย', width / 2, 260);
-            ctx.fillText('กรุณาจัดส่งด้วยความระมัดระวังนะคะ', width / 2, 290);
+            ctx.fillText('for Rider: มะม่วงปอกแล้วช้ำง่าย', width / 2, 270);
+            ctx.fillText('กรุณาจัดส่งด้วยความระมัดระวังนะคะ', width / 2, 300);
             
-            // 装飾二重線
-            ctx.fillRect(12, 310, width - 24, 3); 
-            ctx.fillRect(12, 317, width - 24, 1); 
+            // 装飾用の物理二重線
+            ctx.fillRect(12, 320, width - 24, 3); 
+            ctx.fillRect(12, 327, width - 24, 1); 
 
-            let currentY = 355;
+            // 明細の開始位置を 365 にシフトして重なりを完全シャットアウト
+            let currentY = 365;
             let total = 0;
             cart.forEach(item => {
                 ctx.textAlign = 'left';
@@ -334,10 +334,11 @@
             cart = []; orderId = ''; document.getElementById('order-display').innerText = '#'; renderCart();
         }
 
-        // 2. 番号のみのレシート（マルチアプリ動点対応＆美化デザイン版）
+        // 2. 番号のみのレシート（アプリ名サイズアップ＆デザイン・マージン完全最適化版）
         async function handlePrintNumberOnly() {
             const width = 384;
-            const totalHeight = 375; // 上部・下部マージン完全対応
+            // 上部のホッチキス代を維持し、文字拡大を考慮して総高さを 390px に拡張
+            const totalHeight = 390; 
 
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
@@ -346,30 +347,29 @@
             ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, width, totalHeight);
             ctx.fillStyle = '#000000'; ctx.textAlign = 'center';
             
-            // 🌟 選択されたアプリ名をUIから動的に取得
             const currentApp = document.getElementById('app-select').value;
             
-            // 1番上：選択したデリバリーアプリ名 (y=105, 36px)
-            ctx.font = 'bold 36px Arial'; ctx.fillText(currentApp, width / 2, 105);
+            // ① アプリ名のフォントを極大化（36px ➔ 44px）
+            ctx.font = 'bold 44px Arial'; ctx.fillText(currentApp, width / 2, 110);
 
-            // 2番目：店名 (y=145, 26px)
-            ctx.font = 'bold 26px Arial'; ctx.fillText('ข้าวเหนียวมะม่วงแม่สุดารัตน์', width / 2, 145);
+            // ② 2番目：店名 (26px)
+            ctx.font = 'bold 26px Arial'; ctx.fillText('ข้าวเหนียวมะม่วงแม่สุดารัตน์', width / 2, 155);
             
-            // 3番目：注文番号 (y=215, 64px)
-            ctx.font = 'bold 64px Arial'; ctx.fillText(`#${orderId || '0000'}`, width / 2, 215);
+            // ③ 3番目：注文番号 (巨大黒文字 64px)
+            ctx.font = 'bold 64px Arial'; ctx.fillText(`#${orderId || '0000'}`, width / 2, 225);
             
-            // 4番目：ライダーメッセージ (y=260, 290)
+            // ④ 4番目：ライダーメッセージ (特大 22px)
             ctx.font = 'bold 22px Arial';
-            ctx.fillText('สำหรับไรเดอร์: มะม่วงปอกแล้วช้ำง่าย', width / 2, 260);
-            ctx.fillText('กรุณาจัดส่งด้วยความระมัดระวังนะคะ', width / 2, 290);
+            ctx.fillText('for Rider: มะม่วงปอกแล้วช้ำง่าย', width / 2, 270);
+            ctx.fillText('กรุณาจัดส่งด้วยความระมัดระวังนะคะ', width / 2, 300);
 
-            // 5番目：綺麗にするための美化装飾線 (y=310, 317)
-            ctx.fillRect(12, 310, width - 24, 3);
-            ctx.fillRect(12, 317, width - 24, 1);
+            // 5番目：美化装飾二重線
+            ctx.fillRect(12, 320, width - 24, 3);
+            ctx.fillRect(12, 327, width - 24, 1);
 
-            // 6番目：サンクス文言出力 (y=355, 24px)
+            // 6番目：サンクスメッセージ (24px) ➔ わずか25pxの下部余白でタイトに終了
             ctx.font = 'bold 24px Arial';
-            ctx.fillText('* ขอบคุณที่อุดหนุนค่ะ *', width / 2, 355);
+            ctx.fillText('* ขอบคุณที่อุดหนุนค่ะ *', width / 2, 365);
             
             await sendBitmapToPrinter(ctx, width, totalHeight);
         }
