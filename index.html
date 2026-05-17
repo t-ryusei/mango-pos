@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>POS LINE MAN - PREMIUM DESIGN</title>
+    <title>POS LINE MAN - TRUE LOGO UPDATE</title>
     <style>
         body { font-family: sans-serif; padding: 15px; max-width: 900px; margin: 0 auto; background-color: #f4f4f7; min-height: 100vh; }
         header { display: flex; justify-content: space-between; margin-bottom: 15px; align-items: center; }
@@ -159,13 +159,9 @@
                 printerDevice = device;
                 printerDevice.removeEventListener('gattserverdisconnected', handleDisconnect);
                 printerDevice.addEventListener('gattserverdisconnected', handleDisconnect);
-                
-                if (!printerDevice.gatt.connected) {
-                    await printerDevice.gatt.connect();
-                }
+                if (!printerDevice.gatt.connected) { await printerDevice.gatt.connect(); }
                 const service = await printerDevice.gatt.getPrimaryService(0x18f0);
                 printerCharacteristic = await service.getCharacteristic(0x2af1);
-                
                 document.getElementById('status').innerText = '🟢 เชื่อมต่อสำเร็จ (Auto)';
                 document.getElementById('status').style.color = '#00cc74';
                 return true;
@@ -186,17 +182,11 @@
             try {
                 if (navigator.bluetooth && navigator.bluetooth.getDevices) {
                     const devices = await navigator.bluetooth.getDevices();
-                    if (devices.length > 0) {
-                        await setupPrinterConnection(devices[0]);
-                    } else {
-                        document.getElementById('status').innerText = '🟡 ต้องกดเชื่อมต่อครั้งแรกก่อน';
-                    }
+                    if (devices.length > 0) { await setupPrinterConnection(devices[0]); }
+                    else { document.getElementById('status').innerText = '🟡 ต้องกดเชื่อมต่อครั้งแรกก่อน'; }
                 }
-            } catch (err) {
-                console.error(err);
-            } finally {
-                isConnecting = false;
-            }
+            } catch (err) { console.error(err); }
+            finally { isConnecting = false; }
         }
 
         async function connectPrinterManually() {
@@ -211,9 +201,7 @@
             } catch (err) {
                 document.getElementById('status').innerText = '❌ เชื่อมต่อล้มเหลว';
                 document.getElementById('status').style.color = 'red';
-            } finally {
-                isConnecting = false;
-            }
+            } finally { isConnecting = false; }
         }
 
         function handleDisconnect() {
@@ -223,9 +211,7 @@
             setTimeout(tryAutoConnect, 3000);
         }
 
-        document.addEventListener('visibilitychange', () => {
-            if (document.visibilityState === 'visible') { tryAutoConnect(); }
-        });
+        document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { tryAutoConnect(); } });
         window.addEventListener('focus', tryAutoConnect);
         setTimeout(tryAutoConnect, 1000);
 
@@ -239,7 +225,6 @@
                     return;
                 }
             }
-
             const imgData = ctx.getImageData(0, 0, width, totalHeight).data;
             const bitWidth = width / 8;
             const bitmap = [0x1D, 0x76, 0x30, 0, bitWidth & 0xFF, (bitWidth >> 8) & 0xFF, totalHeight & 0xFF, (totalHeight >> 8) & 0xFF];
@@ -267,7 +252,45 @@
             }
         }
 
-        // 1. 通常の明細付きレシート (プレミアム・リデザイン版)
+        // 🌟【バグ修正】LINE MAN 本物の「吹き出し融合型 M ロゴ」生成エンジン
+        function drawLineManLogo(ctx, x, y, size) {
+            ctx.save();
+            ctx.translate(x, y);
+            
+            // 1. 背景の角丸四角形（LINEグリーンを模したベタ塗り）
+            ctx.fillStyle = '#000000'; // 白黒印刷のため100%黒として出力
+            const radius = size * 0.22;
+            ctx.beginPath();
+            ctx.moveTo(radius, 0);
+            ctx.lineTo(size - radius, 0);
+            ctx.quadraticCurveTo(size, 0, size, radius);
+            ctx.lineTo(size, size - radius);
+            ctx.quadraticCurveTo(size, size, size - radius, size);
+            ctx.lineTo(radius, size);
+            ctx.quadraticCurveTo(0, size, 0, size - radius);
+            ctx.lineTo(0, radius);
+            ctx.quadraticCurveTo(0, 0, radius, 0);
+            ctx.closePath();
+            ctx.fill();
+            
+            // 2. 内側の白抜き「M」フォントレンダリング
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold ' + Math.floor(size * 0.68) + 'px Arial, Helvetica, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('M', size / 2, size * 0.48);
+            
+            // 3. LINEのアイデンティティである「吹き出しのしっぽ（トゲ）」をMの左側にアドオン
+            ctx.beginPath();
+            ctx.moveTo(size * 0.26, size * 0.58); // Mの左側縦棒付近から
+            ctx.lineTo(size * 0.10, size * 0.74); // 左下に向かって鋭角に尖らせる
+            ctx.lineTo(size * 0.32, size * 0.70); // スムーズに戻す
+            ctx.closePath();
+            ctx.fill();
+            
+            ctx.restore();
+        }
+
         async function handlePrint() {
             const width = 384;
             let bodyHeight = 0;
@@ -276,8 +299,7 @@
                 if (item.selectedRice || item.selectedMango) { bodyHeight += 32; }
                 bodyHeight += 12; 
             });
-            // ヘッダー230px + 明細 + フッター160px
-            const totalHeight = 230 + bodyHeight + 160; 
+            const totalHeight = 300 + bodyHeight + 160; 
 
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
@@ -286,23 +308,23 @@
             ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, width, totalHeight);
             ctx.fillStyle = '#000000'; ctx.textAlign = 'center';
             
-            // ① 【新仕様】最上部に店名を中央配置
-            ctx.font = 'bold 22px Arial'; ctx.fillText('ข้าวเหนียวมะม่วงแม่สุดารัตน์', width / 2, 38);
+            // ロゴ描画 (72x72px)
+            drawLineManLogo(ctx, (width - 72) / 2, 20, 72);
             
-            // サブタイトル
-            ctx.font = 'bold 18px Arial'; ctx.fillText('LINE MAN ORDER', width / 2, 65);
-            
-            // ② 【新仕様】注文番号を黒背景×白抜きの「反転表示」にしてガチ感を演出
-            ctx.fillRect(42, 85, width - 84, 75); // 黒い座布団を敷く
-            ctx.fillStyle = '#ffffff'; ctx.textAlign = 'center';
-            ctx.font = 'bold 54px Arial'; ctx.fillText(`#${orderId || '0000'}`, width / 2, 140); // 白い文字
-            
-            // 装飾用の二重線をCanvasで表現
             ctx.fillStyle = '#000000';
-            ctx.fillRect(12, 185, width - 24, 4); // 上の太い線
-            ctx.fillRect(12, 194, width - 24, 1); // 下の細い線
+            ctx.font = 'bold 22px Arial'; ctx.fillText('ข้าวเหนียวมะม่วงแม่สุดารัตน์', width / 2, 115);
+            ctx.font = 'bold 18px Arial'; ctx.fillText('LINE MAN ORDER', width / 2, 142);
+            
+            // 注文番号反転UI
+            ctx.fillRect(42, 160, width - 84, 75); 
+            ctx.fillStyle = '#ffffff'; ctx.textAlign = 'center';
+            ctx.font = 'bold 54px Arial'; ctx.fillText(`#${orderId || '0000'}`, width / 2, 215); 
+            
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(12, 255, width - 24, 4); 
+            ctx.fillRect(12, 264, width - 24, 1); 
 
-            let currentY = 235;
+            let currentY = 305;
             let total = 0;
             cart.forEach(item => {
                 ctx.textAlign = 'left';
@@ -318,16 +340,13 @@
                 currentY += 12; 
             });
 
-            // 明細下の境界線
             ctx.fillRect(12, currentY, width - 24, 1);
             ctx.fillRect(12, currentY + 6, width - 24, 4);
 
-            // 合計金額
             ctx.textAlign = 'left';
             ctx.font = 'bold 28px Arial'; ctx.fillText('ยอดรวมทั้งหมด:', 12, currentY + 55);
             ctx.textAlign = 'right'; ctx.fillText(`${total} ฿`, width - 12, currentY + 55);
 
-            // ③ 【新仕様】最下部にサンクスメッセージを追加
             ctx.textAlign = 'center';
             ctx.font = 'bold 18px Arial'; 
             ctx.fillText('* ขอบคุณที่อุดหนุนค่ะ *', width / 2, currentY + 110);
@@ -336,26 +355,23 @@
             cart = []; orderId = ''; document.getElementById('order-display').innerText = '#'; renderCart();
         }
 
-        // 2. 番号のみのレシート (プレミアム・リデザイン版)
         async function handlePrintNumberOnly() {
             const width = 384;
-            const totalHeight = 210; // 反転表示に伴い、高さを210pxに最適化
-
+            const totalHeight = 280; 
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
             canvas.width = width; canvas.height = totalHeight;
-
             ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, width, totalHeight);
             ctx.fillStyle = '#000000'; ctx.textAlign = 'center';
             
-            // ① 【新仕様】店名を上部に出力
-            ctx.font = 'bold 22px Arial'; ctx.fillText('ข้าวเหนียวมะม่วงแม่สุดารัตน์', width / 2, 38);
-            ctx.font = 'bold 16px Arial'; ctx.fillText('คิวออเดอร์ (QUEUE)', width / 2, 62);
+            drawLineManLogo(ctx, (width - 72) / 2, 20, 72);
             
-            // ② 【新仕様】こちらも同様に「反転黒座布団」で圧倒的な視認性を確保
-            ctx.fillRect(32, 80, width - 64, 90); // ひとまわり大きな座布団
+            ctx.font = 'bold 22px Arial'; ctx.fillText('ข้าวเหนียวมะม่วงแม่สุดารัตน์', width / 2, 115);
+            ctx.font = 'bold 16px Arial'; ctx.fillText('คิวออเดอร์ (QUEUE)', width / 2, 140);
+            
+            ctx.fillRect(32, 160, width - 64, 90); 
             ctx.fillStyle = '#ffffff';
-            ctx.font = 'bold 68px Arial'; ctx.fillText(`#${orderId || '0000'}`, width / 2, 148);
+            ctx.font = 'bold 68px Arial'; ctx.fillText(`#${orderId || '0000'}`, width / 2, 228);
             
             await sendBitmapToPrinter(ctx, width, totalHeight);
         }
