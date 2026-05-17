@@ -77,15 +77,14 @@
     </div>
 
     <script>
-        // メニューデータ定義（ライス100g単位化、Peeled Mangoの甘さ有効化）
         const MENU_ITEMS = [
             { id: 'm_s', name: 'Mango Sticky Rice S', price: 89, rice: true, mango: true },
             { id: 'm_m', name: 'Mango Sticky Rice M', price: 129, rice: true, mango: true },
             { id: 'm_l', name: 'Mango Sticky Rice L', price: 189, rice: true, mango: true },
             { id: 'c_n', name: 'Custard & Rice (Normal)', price: 35, rice: true },
             { id: 'c_l', name: 'Custard & Rice (Large)', price: 75, rice: true },
-            { id: 'p_s', name: 'Peeled Mango (S)', price: 99, mango: true }, // 甘さを反映
-            { id: 'p_l', name: 'Peeled Mango (L)', price: 159, mango: true }, // 甘さを反映
+            { id: 'p_s', name: 'Peeled Mango (S)', price: 99, mango: true },
+            { id: 'p_l', name: 'Peeled Mango (L)', price: 159, mango: true },
             { id: 'r_100', name: 'Sticky Rice 100g', price: 30, rice: true },
             { id: 'r_200', name: 'Sticky Rice 200g', price: 60, rice: true },
             { id: 'r_300', name: 'Sticky Rice 300g', price: 90, rice: true },
@@ -98,7 +97,6 @@
         let cart = [];
         let printerCharacteristic = null;
 
-        // メニューの描画
         const menuContainer = document.getElementById('menu-container');
         MENU_ITEMS.forEach(item => {
             const btn = document.createElement('button');
@@ -115,7 +113,6 @@
         }
 
         function addToCart(item) {
-            // もち米の複数選択（チェックボックス）の値をパース
             let riceStr = null;
             if (item.rice) {
                 const checkedBoxes = document.querySelectorAll('.rice-checkbox:checked');
@@ -136,8 +133,6 @@
                 total += item.price;
                 const div = document.createElement('div');
                 div.className = 'cart-item';
-                
-                // 表示用テキストの整形
                 const optsArray = [item.selectedRice, item.selectedMango].filter(Boolean);
                 const optsText = optsArray.length > 0 ? optsArray.join(' / ') : '';
 
@@ -169,6 +164,9 @@
                 document.getElementById('status').innerText = '❌ เชื่อมต่อล้มเหลว';
             }
         }
+
+        // 非同期スリープ関数（バッファ溢れ防止用）
+        const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
         async function handlePrint() {
             if (!printerCharacteristic) return alert('กรุณาเชื่อมต่อเครื่องพิมพ์ก่อน');
@@ -203,7 +201,7 @@
             ctx.font = 'bold 20px Arial'; ctx.fillText('ยอดรวมทั้งหมด:', 10, currentY + 45);
             ctx.textAlign = 'right'; ctx.fillText(`${total} ฿`, width-10, currentY + 45);
 
-            // ビットマップバイナリ変換
+            // ビットマップ変換
             const imgData = ctx.getImageData(0, 0, width, totalHeight).data;
             const bitWidth = width / 8;
             const bitmap = [0x1D, 0x76, 0x30, 0, bitWidth & 0xFF, (bitWidth >> 8) & 0xFF, totalHeight & 0xFF, (totalHeight >> 8) & 0xFF];
@@ -220,14 +218,18 @@
                     bitmap.push(byte);
                 }
             }
-            bitmap.push(0x1B, 0x64, 0x03, 0x1D, 0x56, 0x42, 0x00); // オートカット
+            bitmap.push(0x1B, 0x64, 0x03, 0x1D, 0x56, 0x42, 0x00); // オートカットコマンド
 
             const uint8Array = new Uint8Array(bitmap);
-            for (let i = 0; i < uint8Array.length; i += 512) {
-                await printerCharacteristic.writeValue(uint8Array.slice(i, i + 512));
+            const chunkSize = 20; // BLEの標準ペイロードサイズ（20バイト）に固定してデータ落ちを防止
+            
+            for (let i = 0; i < uint8Array.length; i += chunkSize) {
+                const chunk = uint8Array.slice(i, i + chunkSize);
+                await printerCharacteristic.writeValue(chunk);
+                await sleep(15); // プリンターがフラッシュする時間を確保（15ms）
             }
             
-            // 印刷後のリセット処理
+            // リセット
             cart = []; orderId = ''; document.getElementById('order-display').innerText = '#'; renderCart();
         }
     </script>
